@@ -17,6 +17,9 @@ public static class Program
             .OnBeforeUninstallFastCallback(_ => StartupService.Set(false))
             .Run();
 
+        // Before anything reads its settings: bring over those of development builds.
+        Win2Pad.Core.AppPaths.MigrateLegacySettings();
+
         var app = new App();
         app.InitializeComponent();
         app.Run();

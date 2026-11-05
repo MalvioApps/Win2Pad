@@ -24,7 +24,11 @@ public sealed class UpdateService : INotifyPropertyChanged
     {
         try
         {
-            _manager = new UpdateManager(new GithubSource(RepositoryUrl, accessToken: null, prerelease: false));
+            // Only needed while the repository is private: GitHub serves private release assets to
+            // authorised users alone. Public releases need no token.
+            var token = Environment.GetEnvironmentVariable("WIN2PAD_UPDATE_TOKEN");
+            _manager = new UpdateManager(new GithubSource(RepositoryUrl,
+                accessToken: string.IsNullOrWhiteSpace(token) ? null : token.Trim(), prerelease: false));
         }
         catch (Exception)
         {

@@ -23,6 +23,9 @@ public readonly record struct PinMove(int Dx, int Dy, int SettleMs);
 /// The model is therefore pessimistic towards the return edge: moves away from it are multiplied
 /// by <see cref="AwayFactor"/>, moves towards it are not. The estimate never reaches the return
 /// edge before the real pointer does, so the user is never pulled back early.
+/// With a measured <see cref="GainCurve"/> the model follows the tablet's acceleration instead,
+/// and only a little headroom is needed. It must then be fed the reports actually sent to the
+/// tablet, because the acceleration depends on the size of each report.
 /// </summary>
 public sealed class PointerModel
 {
@@ -35,9 +38,19 @@ public sealed class PointerModel
     private double _lastPush = double.NegativeInfinity;
     private double _armedAt = double.NegativeInfinity;
 
+    /// <param name="returnLead">
+    /// Share of the tablet before the return edge where moving towards it quickly already returns,
+    /// so the tablet's own edge gestures (notifications, Control Center, Dock) never get the time
+    /// to open. Approaching slowly still reaches the edge.
+    /// </param>
+    /// <param name="leadMinSpeed">Counts per report towards the edge that count as moving quickly.</param>
     public PointerModel(PointerCalibration calibration, TabletSide side, double returnMargin = 0.04,
-        double awayFactor = 2.4, double overshootResetSeconds = 0.4, double entryInset = 0.02)
+        double awayFactor = 2.4, double overshootResetSeconds = 0.4, double entryInset = 0.02,
+        GainCurve? gainCurve = null, double returnLead = 0, int leadMinSpeed = 4)
     {
+        GainCurve = gainCurve;
+        ReturnLead = Math.Max(0, returnLead);
+        LeadMinSpeed = leadMinSpeed;
         if (!calibration.IsValid) throw new ArgumentException("Calibration must be positive.", nameof(calibration));
         Calibration = calibration;
         Side = side;
@@ -53,6 +66,12 @@ public sealed class PointerModel
     public double AwayFactor { get; }
     public double OvershootResetSeconds { get; }
     public double EntryInset { get; }
+    public GainCurve? GainCurve { get; }
+    public double ReturnLead { get; }
+    public int LeadMinSpeed { get; }
+
+    /// <summary>The early-return zone in counts.</summary>
+    public int ReturnLeadCounts => (int)Math.Round(ReturnLead * ReturnExtent);
 
     public double X { get; private set; }
     public double Y { get; private set; }
@@ -130,7 +149,11 @@ public sealed class PointerModel
     /// <summary>Applies one move sent to the tablet; true when the user pushed past the return edge.</summary>
     public bool Move(int dx, int dy, double now)
     {
-        var returned = ReturnMove(dx, dy, now);
+        // Scale the report by the tablet's acceleration at its speed, so the estimate travels as
+        // far as the real pointer did.
+        var speed = Math.Sqrt((double)dx * dx + (double)dy * dy);
+        var ratio = GainCurve?.Ratio(speed) ?? 1.0;
+        var returned = ReturnMove(dx * ratio, dy * ratio, speed, now);
         if (now < _armedAt)
         {
             Overshoot = 0;
@@ -139,7 +162,7 @@ public sealed class PointerModel
         return returned;
     }
 
-    private bool ReturnMove(int dx, int dy, double now)
+    private bool ReturnMove(double dx, double dy, double speed, double now)
     {
         int w = Calibration.Width, h = Calibration.Height;
         double ex = dx, ey = dy;
@@ -163,6 +186,24 @@ public sealed class PointerModel
         };
         X = Math.Clamp(nx, 0, w);
         Y = Math.Clamp(ny, 0, h);
+
+        // Heading for the edge quickly and already close to it: return now, before the tablet
+        // can open what it shows at that edge.
+        if (ReturnLeadCounts > 0)
+        {
+            var (toward, distance) = Side switch
+            {
+                TabletSide.Top => (dy, h - Y),
+                TabletSide.Bottom => (-dy, Y),
+                TabletSide.Left => (dx, w - X),
+                _ => (-dx, X)
+            };
+            if (toward > 0 && speed >= LeadMinSpeed && distance <= ReturnLeadCounts)
+            {
+                Overshoot = 0;
+                return true;
+            }
+        }
 
         if (LeadCounts > 0)
         {

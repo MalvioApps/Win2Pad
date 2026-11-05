@@ -23,6 +23,23 @@
     <ui:TextBlock x:Name="Summary" FontTypography="Caption" Margin="0,8,0,12" TextWrapping="Wrap"
                   Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
 
+    <ui:CardControl x:Name="SharePanel" Icon="{ui:SymbolIcon ArrowAutofitWidth24}" Margin="0,0,0,12" Visibility="Collapsed">
+      <ui:CardControl.Header>
+        <StackPanel>
+          <ui:TextBlock Text="Shared edge" FontTypography="BodyStrong" />
+          <ui:TextBlock FontTypography="Caption" TextWrapping="Wrap"
+                        Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                        Text="How much of the screen's edge leads to the iPad, from its real size up to every screen side by side on that edge (100% per screen)." />
+        </StackPanel>
+      </ui:CardControl.Header>
+      <StackPanel Orientation="Horizontal">
+        <Slider x:Name="ShareSlider" Width="220" VerticalAlignment="Center" SmallChange="1" LargeChange="10"
+                IsSnapToTickEnabled="True" TickFrequency="1" ValueChanged="OnShareChanged" />
+        <ui:TextBlock x:Name="ShareValue" Width="56" Margin="12,0,0,0" VerticalAlignment="Center"
+                      TextAlignment="Right" FontTypography="BodyStrong" />
+      </StackPanel>
+    </ui:CardControl>
+
     <StackPanel Orientation="Horizontal">
       <ui:Button Content="Reset" Icon="{ui:SymbolIcon ArrowReset24}" Click="OnReset" Margin="0,0,8,0" />
       <ui:Button Content="Refresh screens" Icon="{ui:SymbolIcon ArrowSync24}" Click="OnRefresh" />

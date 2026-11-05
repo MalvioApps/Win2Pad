@@ -100,9 +100,26 @@ public partial class DevicesPage : Page
         var forget = new Wpf.Ui.Controls.Button { Content = "Forget…", Appearance = ControlAppearance.Danger };
         forget.Click += async (_, _) => await ForgetAsync(profile);
 
+        // Pointer speed on this tablet: saved when the slider is let go, not on every step.
+        var speedValue = new TextBlock { Width = 48, VerticalAlignment = VerticalAlignment.Center, Text = $"{profile.PointerSpeed:0.00}x" };
+        var speed = new Slider
+        {
+            Minimum = 0.25, Maximum = 3, Value = profile.PointerSpeed, Width = 180, SmallChange = 0.05, LargeChange = 0.25,
+            TickFrequency = 0.05, IsSnapToTickEnabled = true, VerticalAlignment = VerticalAlignment.Center,
+            ToolTip = "How fast the pointer moves on this tablet compared with this PC"
+        };
+        speed.ValueChanged += (_, e) => speedValue.Text = $"{e.NewValue:0.00}x";
+        speed.PreviewMouseLeftButtonUp += (_, _) => SetSpeed(profile.DeviceId, speed.Value);
+        speed.KeyUp += (_, _) => SetSpeed(profile.DeviceId, speed.Value);
+        var speedRow = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 8, 0, 0) };
+        speedRow.Children.Add(new TextBlock { Text = "Pointer speed", Width = 100, VerticalAlignment = VerticalAlignment.Center });
+        speedRow.Children.Add(speed);
+        speedRow.Children.Add(speedValue);
+
         var left = new StackPanel();
         left.Children.Add(name);
         left.Children.Add(detail);
+        left.Children.Add(speedRow);
 
         var actions = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center };
         actions.Children.Add(orientation);
@@ -130,6 +147,14 @@ public partial class DevicesPage : Page
         if (custom == (profile.ModelName ?? profile.Name)) custom = null;
         if (custom == profile.CustomName) return;
         _service.Profiles.Save(profile with { CustomName = custom });
+    }
+
+    private void SetSpeed(string deviceId, double speed)
+    {
+        speed = Math.Round(speed, 2);
+        if (_service.Profiles.Get(deviceId) is not { } profile || Math.Abs(profile.PointerSpeed - speed) < 0.001) return;
+        _service.Profiles.Save(profile with { PointerSpeed = speed });
+        _service.ApplyActiveProfile();
     }
 
     private void SetOrientation(string deviceId, bool landscape)

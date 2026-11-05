@@ -8,8 +8,23 @@ namespace Win2Pad.Core.Edge;
 /// where the tablet's edge starts and how long it is along that side, in desktop pixels (x for
 /// Top/Bottom, y for Left/Right). The tablet may overhang the monitor; only the overlap crosses.
 /// </summary>
-public sealed record TabletPlacement(ScreenRect Monitor, TabletSide Side, int Offset, int Length)
+public sealed record TabletPlacement(ScreenRect Monitor, TabletSide Side, int Offset, int Length, double Scale = 1)
 {
+    /// <summary>
+    /// The line the tablet sits against: the y of a top or bottom edge, the x of a left or right
+    /// one. Every monitor whose edge on that side lies on it, side by side, can lead to the tablet.
+    /// </summary>
+    [JsonIgnore]
+    public int Line => EdgeLine(Monitor, Side);
+
+    public static int EdgeLine(ScreenRect monitor, TabletSide side) => side switch
+    {
+        TabletSide.Top => monitor.Top,
+        TabletSide.Bottom => monitor.Bottom,
+        TabletSide.Left => monitor.Left,
+        _ => monitor.Right
+    };
+
     [JsonIgnore]
     public int MonitorStart => Side is TabletSide.Top or TabletSide.Bottom ? Monitor.Left : Monitor.Top;
     [JsonIgnore]
@@ -53,6 +68,41 @@ public sealed record EdgeOptions
 
     [JsonIgnore]
     public TabletSide EffectiveSide => Placement?.Side ?? Side;
+
+    /// <summary>
+    /// The tablet's measured pointer acceleration, from the Safari calibration. With it the
+    /// pointer model follows fast moves; without it, it assumes <see cref="AwayFactor"/> for all.
+    /// </summary>
+    public IReadOnlyList<GainPoint>? GainCurve { get; init; }
+
+    /// <summary>Multiplies the movement sent to the tablet: above 1 the pointer moves faster there.</summary>
+    public double PointerSpeed { get; init; } = 1.0;
+
+    /// <summary>
+    /// When the way back is through the tablet's top or bottom edge: moving towards it quickly
+    /// returns this share of the screen before it, so notifications, Control Center, the Dock
+    /// or the app switcher never get the time to open.
+    /// </summary>
+    public double VerticalReturnLead { get; init; } = 0.05;
+
+    /// <summary>The push past the top or bottom edge needed when approaching slowly; small for the same reason.</summary>
+    public double VerticalReturnMargin { get; init; } = 0.01;
+
+    /// <summary>Counts per report towards the edge that count as heading for it quickly.</summary>
+    public int LeadMinSpeed { get; init; } = 4;
+
+    /// <summary>The pointer model these settings describe, for a tablet on <paramref name="side"/>.</summary>
+    public PointerModel CreateModel(TabletSide side)
+    {
+        var vertical = side is TabletSide.Top or TabletSide.Bottom;
+        var curve = GainCurve is { Count: > 0 } points ? new GainCurve(points) : null;
+        return new PointerModel(Calibration, side,
+            returnMargin: vertical ? VerticalReturnMargin : ReturnMargin,
+            awayFactor: AwayFactor,
+            gainCurve: curve,
+            returnLead: vertical ? VerticalReturnLead : 0,
+            leadMinSpeed: LeadMinSpeed);
+    }
 
     /// <summary>Tablet screen size in HID counts at slow speed. Zero means not calibrated.</summary>
     public int CalibrationWidth { get; init; }

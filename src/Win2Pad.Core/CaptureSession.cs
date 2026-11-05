@@ -154,6 +154,21 @@ public static class CaptureSession
             catch (SemaphoreFullException) { }
         }
 
+        // The tablet accelerates each report by its size, so the pointer model is fed the reports
+        // exactly as sent, not the hook's individual moves. When one takes the pointer back out,
+        // input returns to Windows at the matching point; nothing may stay pressed on the tablet.
+        async Task TrackSentAsync(InputReport report)
+        {
+            if (peripheral.IsLocalTarget) return;
+            if (Volatile.Read(ref switcher).OnRemoteMotion(report.Dx, report.Dy) is not { } back) return;
+
+            capture.ReturnLocal(back.X, back.Y);
+            if (report.Buttons != MouseButtons.None) await peripheral.SendMouseAsync(MouseButtons.None, 0, 0, 0);
+            await peripheral.ReleaseKeysAsync();
+            reports.EnqueueTargetChange(Queued.GoLocal);
+            Wake();
+        }
+
         using var pumpCancellation = new CancellationTokenSource();
         var pump = Task.Run(async () =>
         {
@@ -179,6 +194,7 @@ public static class CaptureSession
                             await peripheral.SendMouseAsync(key.Buttons, key.Dx, key.Dy, key.Wheel);
                             lastMouseSend = clock.ElapsedMilliseconds;
                             Interlocked.Increment(ref sent);
+                            await TrackSentAsync(key);
                             continue;
                         }
 
@@ -252,6 +268,7 @@ public static class CaptureSession
                         lastMouseSend = clock.ElapsedMilliseconds;
                         if (verbose && sent < 40) log($"  [pump] mouse notify #{sent} ({mouse.Dx},{mouse.Dy}) took {lastMouseSend - started} ms");
                         Interlocked.Increment(ref sent);
+                        await TrackSentAsync(mouse);
                     }
                 }
                 catch (OperationCanceledException) { break; }
@@ -270,21 +287,22 @@ public static class CaptureSession
             reports.EnqueueKeyboard(modifiers, usages);
             Wake();
         };
+        // The tablet's pointer speed setting: movement is scaled, keeping the fractions so slow
+        // moves are not rounded away.
+        double carryX = 0, carryY = 0;
         capture.MouseReport += (buttons, dx, dy, wheel) =>
         {
-            reports.EnqueueMouse(buttons, dx, dy, wheel);
-
-            // Runs on the hook thread, before the hook re-centres the pointer, so placing it here
-            // and leaving pass-through on is what makes it reappear at the matching point.
-            if (Volatile.Read(ref switcher).OnRemoteMotion(dx, dy) is { } back)
+            var speed = Volatile.Read(ref switcher).Options.PointerSpeed;
+            if (speed is > 0 and not 1.0 && (dx != 0 || dy != 0))
             {
-                capture.SetPassThrough(true);
-                Win32Screens.SetCursor(back.X, back.Y);
-                // Nothing may stay pressed on the tablet once it stops hearing from us.
-                if (buttons != MouseButtons.None) reports.EnqueueMouse(MouseButtons.None, 0, 0, 0);
-                reports.EnqueueKeyboard(KeyModifiers.None, []);
-                reports.EnqueueTargetChange(Queued.GoLocal);
+                carryX += dx * speed;
+                carryY += dy * speed;
+                dx = (int)carryX;
+                dy = (int)carryY;
+                carryX -= dx;
+                carryY -= dy;
             }
+            reports.EnqueueMouse(buttons, dx, dy, wheel);
             Wake();
         };
         capture.LocalPointerMoved += (dx, dy, buttonsHeld) =>

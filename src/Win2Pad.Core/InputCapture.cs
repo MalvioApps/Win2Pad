@@ -69,6 +69,23 @@ public sealed class InputCapture : IDisposable
 
     public bool IsRunning => _running;
 
+    // Serialises "re-centre unless input went local" in the hook with "go local and place the
+    // pointer" from the report pump, so the hook can never throw a returning pointer to the middle.
+    private readonly object _cursorLock = new();
+
+    /// <summary>
+    /// Hands input back to Windows with the pointer at (x, y). Safe from any thread: if the hook
+    /// is handling a move at the same moment, it sees the switch and leaves the pointer alone.
+    /// </summary>
+    public void ReturnLocal(int x, int y)
+    {
+        lock (_cursorLock)
+        {
+            SetPassThrough(true);
+            SetCursorPos(x, y);
+        }
+    }
+
     public bool PassThrough => _passThrough;
 
     /// <summary>Lets local input through untouched; re-centres the cursor when redirect resumes
@@ -489,7 +506,10 @@ public sealed class InputCapture : IDisposable
                     MouseReport?.Invoke(_buttons, dx, dy, 0);
                     // A listener may have just handed input back to Windows and placed the
                     // pointer where it re-enters; re-centring would throw it to the middle.
-                    if (!_passThrough) SetCursorPos(_centerX, _centerY);
+                    lock (_cursorLock)
+                    {
+                        if (!_passThrough) SetCursorPos(_centerX, _centerY);
+                    }
                     TrackGesture(dx, dy);
                 }
                 break;

@@ -80,14 +80,17 @@ public sealed class EdgeSwitcher
             int spanStart, spanLength, crossStart, crossEnd;
             if (Options.Placement is { } placement)
             {
-                // Only the monitor the tablet was placed against, and only where they touch.
-                if (mon != placement.Monitor || !placement.Touches)
+                // Only monitors whose edge lies on the line the tablet was placed against (the one
+                // it was dropped on, or others side by side with it), and only where they touch.
+                if (TabletPlacement.EdgeLine(mon, side) != placement.Line)
                 {
                     _push.Reset();
                     return null;
                 }
                 (spanStart, spanLength) = (placement.Offset, placement.Length);
-                (crossStart, crossEnd) = placement.Overlap;
+                var monStart = horizontal ? mon.Left : mon.Top;
+                var monEnd = horizontal ? mon.Right : mon.Bottom;
+                (crossStart, crossEnd) = (Math.Max(spanStart, monStart), Math.Min(spanStart + spanLength, monEnd));
             }
             else
             {
@@ -109,7 +112,7 @@ public sealed class EdgeSwitcher
             _push.Reset();
             var fraction = Math.Clamp((along - spanStart) / (double)Math.Max(1, spanLength - 1), 0, 1);
 
-            _model = new PointerModel(Options.Calibration, side, Options.ReturnMargin, Options.AwayFactor);
+            _model = Options.CreateModel(side);
             var moves = _model.Enter(fraction);
             // The entry moves take two settle pauses before any user motion reaches the tablet.
             var settle = moves.Sum(m => m.SettleMs) / 1000.0;
@@ -133,13 +136,18 @@ public sealed class EdgeSwitcher
             var now = _clock();
             if (!_model.Move(dx, dy, now)) return null;
 
-            var mon = _entryMonitor;
             var gap = Options.ReturnGapPixels;
             var side = _model.Side;
             var horizontal = side is TabletSide.Top or TabletSide.Bottom;
-            // Back to the same place along the tablet's edge; where the tablet overhangs the
-            // monitor, the nearest point the monitor still has.
+            // Back to the same place along the tablet's edge, on whichever monitor on that line is
+            // there; where the tablet overhangs them all, the nearest point the entry monitor has.
             var along = _spanStart + (int)Math.Round(_model.FractionAlongEdge() * (_spanLength - 1));
+            var line = TabletPlacement.EdgeLine(_entryMonitor, side);
+            var inside = side is TabletSide.Bottom or TabletSide.Right ? line - 1 : line;
+            var mon = (horizontal ? _screens.MonitorAt(along, inside) : _screens.MonitorAt(inside, along)) is { } there
+                      && TabletPlacement.EdgeLine(there, side) == line
+                ? there
+                : _entryMonitor;
             along = horizontal ? Math.Clamp(along, mon.Left, mon.Right - 1) : Math.Clamp(along, mon.Top, mon.Bottom - 1);
             (int X, int Y) point = side switch
             {

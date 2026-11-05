@@ -3,6 +3,7 @@ using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Shapes;
+using System.Windows.Threading;
 using Win2Pad.App.Services;
 using Win2Pad.Core.Edge;
 using Wpf.Ui.Controls;
@@ -12,7 +13,8 @@ namespace Win2Pad.App.Views;
 /// <summary>
 /// Places the tablet next to the monitors, like Windows' display arrangement. Monitors are drawn
 /// at their desktop positions and the tablet at its size in points; dropping it snaps it against
-/// the nearest side and saves the placement, which a running session picks up at once.
+/// the nearest side and saves the placement, which a running session picks up at once. A slider
+/// sets how much edge it shares, from its real size up to every monitor side by side on that line.
 /// </summary>
 public partial class ArrangementPage : Page
 {
@@ -20,9 +22,11 @@ public partial class ArrangementPage : Page
 
     private IReadOnlyList<(ScreenRect Bounds, bool Primary)> _monitors = [];
     private EdgeOptions _options = new();
+    private TabletPlacement? _placement;
     private ScreenRect _tablet;
-    private bool _placed;
-    private (int Width, int Height) _tabletSize;
+    private (int Width, int Height) _natural;
+    private bool _updatingSlider;
+    private readonly DispatcherTimer _saveDelay;
 
     // Desktop -> canvas transform of the last drawing.
     private double _scale = 1, _originX, _originY;
@@ -34,8 +38,23 @@ public partial class ArrangementPage : Page
     public ArrangementPage()
     {
         InitializeComponent();
+        _saveDelay = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(400) };
+        _saveDelay.Tick += (_, _) =>
+        {
+            _saveDelay.Stop();
+            if (_placement is not null) Save(_placement);
+        };
         Loaded += (_, _) => Reload();
+        Unloaded += (_, _) =>
+        {
+            // Leaving the page must not lose a slider change still waiting to be saved.
+            if (!_saveDelay.IsEnabled) return;
+            _saveDelay.Stop();
+            if (_placement is not null) Save(_placement);
+        };
     }
+
+    private IReadOnlyList<ScreenRect> Bounds => _monitors.Select(m => m.Bounds).ToList();
 
     private void Reload()
     {
@@ -44,13 +63,13 @@ public partial class ArrangementPage : Page
 
         var calibration = PeripheralService.Instance.ActiveProfile?.Active?.Pointer
                           ?? (_options.Calibration.IsValid ? _options.Calibration : new PointerCalibration(3349, 2512));
-        _tabletSize = Arrangement.TabletSize(calibration);
+        _natural = Arrangement.TabletSize(calibration);
 
-        var placement = _options.Placement;
-        if (placement is not null && !_monitors.Any(m => m.Bounds == placement.Monitor))
+        _placement = _options.Placement;
+        if (_placement is not null && !_monitors.Any(m => m.Bounds == _placement.Monitor))
         {
             ShowHint(InfoBarSeverity.Warning, "Your screens changed since the iPad was placed. Drag it into place again.");
-            placement = null;
+            _placement = null;
         }
         else
         {
@@ -58,18 +77,24 @@ public partial class ArrangementPage : Page
             if (Hint.IsOpen) ShowHint(InfoBarSeverity.Informational, "Connect the iPad to see it at its real size.");
         }
 
-        _placed = placement is not null;
-        _tablet = placement is not null
-            ? Arrangement.RectFor(Arrangement.Resize(placement, Along(placement.Side)), _tabletSize.Width, _tabletSize.Height)
-            : DefaultTablet();
+        if (_placement is not null) _placement = Arrangement.Rescale(_placement, NaturalAlong(_placement.Side));
+        _tablet = _placement is not null ? TabletRect(_placement) : DefaultTablet();
         Draw();
+        RefreshSlider();
     }
+
+    private int NaturalAlong(TabletSide side) => side is TabletSide.Top or TabletSide.Bottom ? _natural.Width : _natural.Height;
+
+    /// <summary>The tablet drawn at its placement's scale, keeping its shape.</summary>
+    private ScreenRect TabletRect(TabletPlacement placement) =>
+        Arrangement.RectFor(placement,
+            (int)Math.Round(_natural.Width * placement.Scale), (int)Math.Round(_natural.Height * placement.Scale));
 
     /// <summary>Before any placement: beside the primary monitor on the side chosen in Settings, centred.</summary>
     private ScreenRect DefaultTablet()
     {
         var primary = _monitors.FirstOrDefault().Bounds;
-        var (w, h) = _tabletSize;
+        var (w, h) = _natural;
         var cx = (primary.Left + primary.Right - w) / 2;
         var cy = (primary.Top + primary.Bottom - h) / 2;
         ScreenRect dropped = _options.Side switch
@@ -79,11 +104,9 @@ public partial class ArrangementPage : Page
             TabletSide.Bottom => new(cx, primary.Bottom, cx + w, primary.Bottom + h),
             _ => new(primary.Right, cy, primary.Right + w, cy + h)
         };
-        var snapped = Arrangement.Snap(_monitors.Select(m => m.Bounds).ToList(), dropped);
+        var snapped = Arrangement.Snap(Bounds, dropped);
         return snapped is null ? dropped : Arrangement.RectFor(snapped, w, h);
     }
-
-    private int Along(TabletSide side) => side is TabletSide.Top or TabletSide.Bottom ? _tabletSize.Width : _tabletSize.Height;
 
     private void Draw()
     {
@@ -91,7 +114,7 @@ public partial class ArrangementPage : Page
         if (_monitors.Count == 0 || BoardFrame.ActualWidth < 10) return;
 
         // Fit every monitor and the tablet, with room to drag it round.
-        var all = _monitors.Select(m => m.Bounds).Append(_tablet).ToList();
+        var all = Bounds.Append(_tablet).ToList();
         double left = all.Min(r => r.Left), top = all.Min(r => r.Top);
         double right = all.Max(r => r.Right), bottom = all.Max(r => r.Bottom);
         var padX = (right - left) * 0.15;
@@ -121,25 +144,27 @@ public partial class ArrangementPage : Page
             Board.Children.Add(Box(bounds, "ControlFillColorDefaultBrush", "ControlStrokeColorDefaultBrush", label));
         }
 
-        // Where the two touch: the stretch the pointer crosses.
-        var placement = Arrangement.Snap(_monitors.Select(m => m.Bounds).ToList(), _tablet);
-        if (_placed && placement is { Touches: true })
+        // Where they touch: the stretches the pointer crosses, on every monitor on that line.
+        if (_placement is { } placement)
         {
-            var (start, end) = placement.Overlap;
-            var m = placement.Monitor;
             var horizontal = placement.Side is TabletSide.Top or TabletSide.Bottom;
-            var line = horizontal
-                ? (X1: start, Y1: placement.Side == TabletSide.Top ? m.Top : m.Bottom, X2: end, Y2: placement.Side == TabletSide.Top ? m.Top : m.Bottom)
-                : (X1: placement.Side == TabletSide.Left ? m.Left : m.Right, Y1: start, X2: placement.Side == TabletSide.Left ? m.Left : m.Right, Y2: end);
-            Board.Children.Add(new Line
+            foreach (var m in Bounds.Where(m => TabletPlacement.EdgeLine(m, placement.Side) == placement.Line))
             {
-                X1 = X(line.X1), Y1 = Y(line.Y1), X2 = X(line.X2), Y2 = Y(line.Y2),
-                Stroke = (Brush)FindResource("SystemAccentColorPrimaryBrush"), StrokeThickness = 4,
-                StrokeStartLineCap = PenLineCap.Round, StrokeEndLineCap = PenLineCap.Round
-            });
+                var start = Math.Max(placement.Offset, horizontal ? m.Left : m.Top);
+                var end = Math.Min(placement.Offset + placement.Length, horizontal ? m.Right : m.Bottom);
+                if (end <= start) continue;
+                var line = placement.Line;
+                Board.Children.Add(new Line
+                {
+                    X1 = X(horizontal ? start : line), Y1 = Y(horizontal ? line : start),
+                    X2 = X(horizontal ? end : line), Y2 = Y(horizontal ? line : end),
+                    Stroke = (Brush)FindResource("SystemAccentColorPrimaryBrush"), StrokeThickness = 4,
+                    StrokeStartLineCap = PenLineCap.Round, StrokeEndLineCap = PenLineCap.Round
+                });
+            }
         }
 
-        var name = PeripheralService.Instance.ActiveProfile?.ModelName ?? "iPad";
+        var name = PeripheralService.Instance.ActiveProfile?.DisplayName ?? "iPad";
         var tabletLabel = new System.Windows.Controls.TextBlock
         {
             Text = name, Foreground = Brushes.White, FontWeight = FontWeights.SemiBold, TextWrapping = TextWrapping.Wrap,
@@ -148,29 +173,81 @@ public partial class ArrangementPage : Page
         };
         _tabletVisual = Box(_tablet, "SystemAccentColorPrimaryBrush", "SystemAccentColorSecondaryBrush", tabletLabel);
         _tabletVisual.Cursor = Cursors.SizeAll;
-        _tabletVisual.Opacity = _placed ? 1 : 0.75;
+        _tabletVisual.Opacity = _placement is null ? 0.75 : 1;
         _tabletVisual.MouseLeftButtonDown += OnTabletDown;
         _tabletVisual.MouseMove += OnTabletMove;
         _tabletVisual.MouseLeftButtonUp += OnTabletUp;
         Board.Children.Add(_tabletVisual);
 
-        Summary.Text = !_placed
+        Summary.Text = _placement is null
             ? $"Not placed yet: drag the iPad to set exactly where the pointer crosses. Until then, any free edge on the {_options.Side.ToString().ToLowerInvariant()} leads to it."
-            : placement is null ? "" : Describe(placement);
+            : Describe(_placement);
     }
 
     private string Describe(TabletPlacement placement)
     {
         var index = _monitors.ToList().FindIndex(m => m.Bounds == placement.Monitor) + 1;
-        var (start, end) = placement.Overlap;
-        var edge = placement.MonitorEnd - placement.MonitorStart;
-        var share = (end - start) * 100 / Math.Max(1, edge);
         var side = placement.Side switch
         {
             TabletSide.Left => "left of", TabletSide.Right => "right of",
             TabletSide.Top => "above", _ => "below"
         };
-        return $"The iPad is {side} screen {index}, sharing {share}% of its edge.";
+        return $"The iPad is {side} screen {index}. Drag it to move it; use the slider to set how much edge it shares.";
+    }
+
+    private int AnchorEdge(TabletPlacement p) => p.MonitorEnd - p.MonitorStart;
+
+    /// <summary>
+    /// The shared-edge slider, as a share of the screen it was placed against: from the iPad's
+    /// real size up to every monitor side by side on that line (100% for one, 200% for two...).
+    /// </summary>
+    private void RefreshSlider()
+    {
+        _updatingSlider = true;
+        try
+        {
+            if (_placement is not { } p)
+            {
+                SharePanel.Visibility = Visibility.Collapsed;
+                return;
+            }
+
+            var edge = AnchorEdge(p);
+            var (spanStart, spanEnd) = Arrangement.LineSpan(Bounds, p);
+            var min = NaturalAlong(p.Side) * 100.0 / edge;
+            var max = Math.Max(min, (spanEnd - spanStart) * 100.0 / edge);
+            SharePanel.Visibility = Visibility.Visible;
+            ShareSlider.Minimum = Math.Round(min);
+            ShareSlider.Maximum = Math.Round(max);
+            ShareSlider.IsEnabled = max - min >= 1;
+            ShareSlider.Value = Math.Clamp(Math.Round(p.Length * 100.0 / edge), ShareSlider.Minimum, ShareSlider.Maximum);
+            ShareValue.Text = $"{ShareSlider.Value:0}%";
+        }
+        finally
+        {
+            _updatingSlider = false;
+        }
+    }
+
+    private void OnShareChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
+    {
+        if (_updatingSlider || _placement is not { } p) return;
+        ShareValue.Text = $"{e.NewValue:0}%";
+
+        var edge = AnchorEdge(p);
+        var length = (int)Math.Round(e.NewValue / 100 * edge);
+        var resized = Arrangement.Resize(p, length) with { Scale = (double)length / NaturalAlong(p.Side) };
+
+        // Keep it over the screens it can share: growing it to span them all lines it up with them.
+        var (spanStart, spanEnd) = Arrangement.LineSpan(Bounds, resized);
+        if (resized.Length <= spanEnd - spanStart)
+            resized = resized with { Offset = Math.Clamp(resized.Offset, spanStart, spanEnd - resized.Length) };
+
+        _placement = resized;
+        _tablet = TabletRect(resized);
+        Draw();
+        _saveDelay.Stop();
+        _saveDelay.Start();
     }
 
     private Border Box(ScreenRect r, string fill, string stroke, UIElement content)
@@ -218,32 +295,39 @@ public partial class ArrangementPage : Page
 
         var left = (int)Math.Round((Canvas.GetLeft(_tabletVisual) - 1 - _originX) / _scale);
         var top = (int)Math.Round((Canvas.GetTop(_tabletVisual) - 1 - _originY) / _scale);
-        var dropped = new ScreenRect(left, top, left + _tabletSize.Width, top + _tabletSize.Height);
-        var placement = Arrangement.Snap(_monitors.Select(m => m.Bounds).ToList(), dropped);
-        if (placement is null)
+        var dropped = new ScreenRect(left, top, left + _tablet.Width, top + _tablet.Height);
+        var snapped = Arrangement.Snap(Bounds, dropped);
+        if (snapped is null)
         {
             Draw();
             return;
         }
 
-        var current = EdgeOptions.Load();
-        var updated = current with { Placement = placement, Side = placement.Side };
-        if (!updated.TrySave(null, out var error))
+        // The dropped size along the edge is the tablet's current scale on its new side.
+        var placement = snapped with { Scale = (double)snapped.Length / NaturalAlong(snapped.Side) };
+        if (!Save(placement))
         {
-            ShowHint(InfoBarSeverity.Error, $"Could not save the arrangement: {error}");
             Draw();
             return;
         }
-
-        _options = updated;
-        _placed = true;
-        _tablet = Arrangement.RectFor(placement, _tabletSize.Width, _tabletSize.Height);
+        _placement = placement;
+        _tablet = TabletRect(placement);
         Draw();
+        RefreshSlider();
+    }
+
+    private bool Save(TabletPlacement placement)
+    {
+        var updated = EdgeOptions.Load() with { Placement = placement, Side = placement.Side };
+        if (updated.TrySave(null, out var error)) return true;
+        ShowHint(InfoBarSeverity.Error, $"Could not save the arrangement: {error}");
+        return false;
     }
 
     private void OnReset(object sender, RoutedEventArgs e)
     {
         // Back to "any free edge on the side chosen in Settings".
+        _saveDelay.Stop();
         var current = EdgeOptions.Load();
         if (current.Placement is not null) (current with { Placement = null }).TrySave(null, out _);
         Reload();

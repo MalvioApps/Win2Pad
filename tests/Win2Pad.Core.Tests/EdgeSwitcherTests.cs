@@ -205,6 +205,44 @@ public sealed class EdgeSwitcherTests
         Assert.Equal((1919 - 8, 1079), back);
     }
 
+    private static readonly ScreenRect Beside = new(1920, 0, 3840, 1080);
+
+    [Fact]
+    public void A_tablet_spanning_two_screens_is_entered_from_both_and_maps_across_them()
+    {
+        // Below both monitors, as long as both together.
+        var below = new TabletPlacement(Main, TabletSide.Bottom, 0, 3840, Scale: 3.55);
+        var screens = new FakeScreens(Main, Beside) { Cursor = (2880, 1079) }; // second monitor, middle
+        var switcher = CreatePlaced(screens, below);
+
+        var entry = switcher.OnLocalMotion(0, 50, false);
+        Assert.NotNull(entry);
+        Assert.Equal(2880 / 3839.0, entry.Fraction, 6);
+
+        // Back out at the far left of the tablet: the first monitor's bottom edge.
+        _now += 2;
+        switcher.OnRemoteMotion(-5000, 0);
+        var back = switcher.OnRemoteMotion(0, -5000);
+        Assert.Equal((0, 1079 - 8), back);
+    }
+
+    [Fact]
+    public void The_line_span_joins_monitors_side_by_side()
+    {
+        var below = new TabletPlacement(Main, TabletSide.Bottom, 400, 1080);
+        Assert.Equal((0, 3840), Arrangement.LineSpan([Main, Beside], below));
+        Assert.Equal((0, 1920), Arrangement.LineSpan([Main, new ScreenRect(1920, 0, 3840, 1200)], below));
+    }
+
+    [Fact]
+    public void Rescaling_keeps_the_chosen_share()
+    {
+        var placed = new TabletPlacement(Main, TabletSide.Right, 135, 1620, Scale: 2); // natural 810
+        var turned = Arrangement.Rescale(placed, 1080);                               // portrait
+        Assert.Equal(2160, turned.Length);
+        Assert.Equal(2, turned.Scale);
+    }
+
     [Fact]
     public void A_placement_that_does_not_touch_its_monitor_never_enters()
     {

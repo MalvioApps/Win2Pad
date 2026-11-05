@@ -19,8 +19,18 @@ public sealed class IndicatorWindow : Window
     private readonly Ellipse _dot = new() { Width = 10, Height = 10, Margin = new Thickness(0, 0, 8, 0) };
     private readonly TextBlock _text = new() { Foreground = Brushes.White, FontSize = 12.5, FontWeight = FontWeights.SemiBold };
 
+    static IndicatorWindow()
+    {
+        // WPF-UI's theme manager restyles every window of the app; whatever it sets, this one keeps
+        // a transparent background so only the pill is drawn (see also RemoveBackdrop).
+        BackgroundProperty.OverrideMetadata(typeof(IndicatorWindow),
+            new FrameworkPropertyMetadata(Brushes.Transparent, null, (_, _) => Brushes.Transparent));
+    }
+
     public IndicatorWindow()
     {
+        Style = new Style(typeof(Window));
+        Title = "Win2Pad indicator";
         WindowStyle = WindowStyle.None;
         AllowsTransparency = true;
         Background = Brushes.Transparent;
@@ -57,7 +67,13 @@ public sealed class IndicatorWindow : Window
             AppSettings.Instance.IndicatorLeft = Left;
             AppSettings.Instance.IndicatorTop = Top;
         };
-        SourceInitialized += (_, _) => MakeToolWindow();
+        SourceInitialized += (_, _) =>
+        {
+            MakeToolWindow();
+            RemoveBackdrop();
+        };
+        // The theme manager applies the system backdrop to every window again on each theme change.
+        Wpf.Ui.Appearance.ApplicationThemeManager.Changed += (_, _) => Dispatcher.BeginInvoke(RemoveBackdrop);
         Loaded += (_, _) => PlaceInitially();
 
         Update(LinkState.Off, null);
@@ -93,6 +109,27 @@ public sealed class IndicatorWindow : Window
         Left = area.Right - ActualWidth - 16;
         Top = area.Bottom - ActualHeight - 16;
     }
+
+    /// <summary>
+    /// WPF-UI's theme manager gives every window of the app a backdrop and sets the colour its
+    /// render surface is cleared with to the theme background, so the window rectangle came out
+    /// opaque round the pill. Clearing to transparent, with no system backdrop, leaves only the
+    /// pill visible.
+    /// </summary>
+    private void RemoveBackdrop()
+    {
+        var handle = new WindowInteropHelper(this).Handle;
+        if (handle == IntPtr.Zero) return;
+        var none = DWMSBT_NONE;
+        DwmSetWindowAttribute(handle, DWMWA_SYSTEMBACKDROP_TYPE, ref none, sizeof(int));
+        if (HwndSource.FromHwnd(handle)?.CompositionTarget is { } target) target.BackgroundColor = Colors.Transparent;
+    }
+
+    private const int DWMWA_SYSTEMBACKDROP_TYPE = 38;
+    private const int DWMSBT_NONE = 1;
+
+    [DllImport("dwmapi.dll")]
+    private static extern int DwmSetWindowAttribute(IntPtr hwnd, int attribute, ref int value, int size);
 
     private void MakeToolWindow()
     {

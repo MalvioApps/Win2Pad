@@ -130,7 +130,7 @@ public sealed class PeripheralService : INotifyPropertyChanged
         {
             var (w, h) = Arrangement.TabletSize(updated.Calibration);
             var along = placement.Side is TabletSide.Top or TabletSide.Bottom ? w : h;
-            updated = updated with { Placement = Arrangement.Resize(placement, along) };
+            updated = updated with { Placement = Arrangement.Rescale(placement, along) };
         }
         if (updated != current && !updated.TrySave(null, out var error))
             Append($"[device] could not save the calibration: {error}");

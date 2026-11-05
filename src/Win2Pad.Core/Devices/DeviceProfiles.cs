@@ -38,6 +38,12 @@ public sealed record DeviceProfile
     /// </summary>
     public bool Landscape { get; init; } = true;
 
+    /// <summary>The pointer acceleration measured with Safari; null until fine-tuned.</summary>
+    public IReadOnlyList<GainPoint>? GainCurve { get; init; }
+
+    /// <summary>How fast the pointer moves on this tablet, as a multiple of the PC's movement.</summary>
+    public double PointerSpeed { get; init; } = 1.0;
+
     public OrientationCalibration? LandscapeCalibration { get; init; }
     public OrientationCalibration? PortraitCalibration { get; init; }
     public DateTimeOffset LastSeen { get; init; }
@@ -68,11 +74,15 @@ public sealed record DeviceProfile
     /// </summary>
     public DeviceProfile WithMeasurement(CalibrationResult result)
     {
-        var measured = new OrientationCalibration(result.Width, result.Height, result.AwayFactor);
-        var turned = new OrientationCalibration(result.Height, result.Width, result.AwayFactor);
+        // With the curve the model follows the acceleration, so only a little headroom is left
+        // for moves faster than the fastest measured.
+        const double headroom = 1.15;
+        var measured = new OrientationCalibration(result.Width, result.Height, headroom);
+        var turned = new OrientationCalibration(result.Height, result.Width, headroom);
         return this with
         {
             Source = CalibrationSource.Safari,
+            GainCurve = Edge.GainCurve.FromGains(result.HorizontalCurve.Select(g => (g.CountsPerReport, g.PointsPerCount))).Points,
             Landscape = result.Landscape,
             LandscapeCalibration = result.Landscape ? measured : turned,
             PortraitCalibration = result.Landscape ? turned : measured
@@ -81,7 +91,14 @@ public sealed record DeviceProfile
 
     /// <summary>Copies the active calibration into the edge settings; unchanged when there is none.</summary>
     public EdgeOptions ApplyTo(EdgeOptions options) => Active is { } c
-        ? options with { CalibrationWidth = c.Width, CalibrationHeight = c.Height, AwayFactor = c.AwayFactor }
+        ? options with
+        {
+            CalibrationWidth = c.Width,
+            CalibrationHeight = c.Height,
+            AwayFactor = c.AwayFactor,
+            GainCurve = GainCurve,
+            PointerSpeed = PointerSpeed
+        }
         : options;
 
     private static OrientationCalibration From(PointerCalibration c, double away) => new(c.Width, c.Height, away);

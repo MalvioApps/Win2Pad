@@ -82,8 +82,9 @@ public sealed class DeviceProfileTests
 
         Assert.Equal(CalibrationSource.Safari, measured.Source);
         Assert.False(measured.Landscape);
-        Assert.Equal(new OrientationCalibration(3300, 2500, 2.6), measured.PortraitCalibration);
-        Assert.Equal(new OrientationCalibration(2500, 3300, 2.6), measured.LandscapeCalibration);
+        Assert.Equal(new OrientationCalibration(3300, 2500, 1.15), measured.PortraitCalibration);
+        Assert.Single(measured.GainCurve!);
+        Assert.Equal(new OrientationCalibration(2500, 3300, 1.15), measured.LandscapeCalibration);
     }
 
     [Fact]

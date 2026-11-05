@@ -74,18 +74,51 @@ public static class Arrangement
     }
 
     /// <summary>
-    /// The same placement for a tablet that changed size (turned round, recalibrated): it stays
-    /// centred where it was along the edge, still sharing part of it.
+    /// The same placement at a new length along the edge (the tablet turned round, was
+    /// recalibrated, or the user changed how much edge it shares): it stays centred where it was,
+    /// still sharing part of the edge.
     /// </summary>
     public static TabletPlacement Resize(TabletPlacement placement, int newLength)
     {
-        if (newLength == placement.Length) return placement;
+        if (newLength == placement.Length || newLength <= 0) return placement;
         var centre = placement.Offset + placement.Length / 2;
         var offset = centre - newLength / 2;
         var edge = placement.MonitorEnd - placement.MonitorStart;
         var min = Math.Max(1, (int)Math.Round(Math.Min(newLength, edge) * MinOverlapShare));
         offset = Math.Clamp(offset, placement.MonitorStart - newLength + min, placement.MonitorEnd - min);
         return placement with { Offset = offset, Length = newLength };
+    }
+
+    /// <summary>The placement for a tablet whose natural length along the edge is <paramref name="naturalLength"/>, at its chosen scale.</summary>
+    public static TabletPlacement Rescale(TabletPlacement placement, int naturalLength) =>
+        Resize(placement, (int)Math.Round(naturalLength * placement.Scale));
+
+    /// <summary>
+    /// The longest edge the tablet can share from where it is placed: the run of monitors side by
+    /// side whose edge on that side lies on the same line, without gaps. One monitor gives its own
+    /// edge; two side by side give both.
+    /// </summary>
+    public static (int Start, int End) LineSpan(IReadOnlyList<ScreenRect> monitors, TabletPlacement placement)
+    {
+        var horizontal = placement.Side is TabletSide.Top or TabletSide.Bottom;
+        var onLine = monitors
+            .Where(m => TabletPlacement.EdgeLine(m, placement.Side) == placement.Line)
+            .Select(m => horizontal ? (Start: m.Left, End: m.Right) : (Start: m.Top, End: m.Bottom))
+            .ToList();
+        var (start, end) = horizontal
+            ? (placement.Monitor.Left, placement.Monitor.Right)
+            : (placement.Monitor.Top, placement.Monitor.Bottom);
+        bool grew;
+        do
+        {
+            grew = false;
+            foreach (var (s, e) in onLine)
+            {
+                if (s <= end && e > end) { end = e; grew = true; }
+                if (e >= start && s < start) { start = s; grew = true; }
+            }
+        } while (grew);
+        return (start, end);
     }
 
     private static bool Intersects(ScreenRect a, ScreenRect b) =>

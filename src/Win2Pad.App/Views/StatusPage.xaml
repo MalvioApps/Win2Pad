@@ -53,57 +53,5 @@
         </StackPanel>
       </ui:CardControl>
 
-      <ui:CardControl Icon="{ui:SymbolIcon LockClosed24}" Margin="0,0,0,8">
-        <ui:CardControl.Header>
-          <StackPanel>
-            <ui:TextBlock Text="Require encryption" FontTypography="BodyStrong" />
-            <ui:TextBlock FontTypography="Caption"
-                          Foreground="{DynamicResource TextFillColorSecondaryBrush}"
-                          Text="Hosts must bond before they can read reports. Can only be changed while stopped." />
-          </StackPanel>
-        </ui:CardControl.Header>
-        <ui:ToggleSwitch IsChecked="{Binding RequireEncryption, Mode=TwoWay}"
-                         IsEnabled="{Binding IsRunning, Converter={StaticResource InverseBool}}" />
-      </ui:CardControl>
-
-      <Grid Margin="0,0,0,20">
-        <Grid.ColumnDefinitions>
-          <ColumnDefinition Width="*" />
-          <ColumnDefinition Width="8" />
-          <ColumnDefinition Width="*" />
-        </Grid.ColumnDefinitions>
-
-        <ui:CardControl Grid.Column="0" Icon="{ui:SymbolIcon Keyboard24}">
-          <ui:CardControl.Header>
-            <ui:TextBlock Text="Keyboard subscribers" FontTypography="BodyStrong" />
-          </ui:CardControl.Header>
-          <ui:TextBlock Text="{Binding KeyboardSubscribers}" FontTypography="TitleLarge" />
-        </ui:CardControl>
-
-        <ui:CardControl Grid.Column="2" Icon="{ui:SymbolIcon Cursor24}">
-          <ui:CardControl.Header>
-            <ui:TextBlock Text="Mouse subscribers" FontTypography="BodyStrong" />
-          </ui:CardControl.Header>
-          <ui:TextBlock Text="{Binding MouseSubscribers}" FontTypography="TitleLarge" />
-        </ui:CardControl>
-      </Grid>
-
-      <ui:TextBlock Text="Logs" FontTypography="Subtitle" Margin="0,0,0,8" />
-      <Border Background="{DynamicResource CardBackgroundFillColorDefaultBrush}"
-              BorderBrush="{DynamicResource CardStrokeColorDefaultBrush}"
-              BorderThickness="1" CornerRadius="8" Height="220">
-        <ScrollViewer x:Name="LogScroller" VerticalScrollBarVisibility="Auto" Padding="12">
-          <ItemsControl ItemsSource="{Binding Log}">
-            <ItemsControl.ItemTemplate>
-              <DataTemplate>
-                <TextBlock Text="{Binding}" FontFamily="Cascadia Mono, Consolas" FontSize="12"
-                           TextWrapping="Wrap"
-                           Foreground="{DynamicResource TextFillColorPrimaryBrush}" />
-              </DataTemplate>
-            </ItemsControl.ItemTemplate>
-          </ItemsControl>
-        </ScrollViewer>
-      </Border>
-
   </StackPanel>
 </Page>

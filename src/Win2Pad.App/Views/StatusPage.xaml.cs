@@ -18,19 +18,12 @@ public partial class StatusPage : Page
     {
         InitializeComponent();
         DataContext = _service;
-        _service.Log.CollectionChanged += OnLogChanged;
         _service.PropertyChanged += OnServiceChanged;
         Loaded += (_, _) => RefreshSteps();
         Unloaded += (_, _) =>
         {
-            _service.Log.CollectionChanged -= OnLogChanged;
             _service.PropertyChanged -= OnServiceChanged;
         };
-    }
-
-    private void OnLogChanged(object? sender, NotifyCollectionChangedEventArgs e)
-    {
-        if (e.Action == NotifyCollectionChangedAction.Add) LogScroller.ScrollToEnd();
     }
 
     private void OnServiceChanged(object? sender, PropertyChangedEventArgs e)

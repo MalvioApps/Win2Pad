@@ -146,7 +146,8 @@ drag it anywhere, right-click to hide it.
 | The Home page says Bluetooth cannot advertise | Your adapter does not support the LE peripheral role; a small USB Bluetooth 5 adapter usually does. |
 
 Still stuck? **About → Report a problem** opens a bug report with your version, Windows and iPad
-model already filled in.
+model already filled in. **About → Diagnostics** shows the Bluetooth connection in detail and has
+a **Copy log** button to paste the log into the report.
 
 ## Privacy
 

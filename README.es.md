@@ -151,7 +151,8 @@ arrástralo donde quieras y ocúltalo con clic derecho.
 | La página Home dice que el Bluetooth no puede anunciarse | Tu adaptador no admite el modo LE periférico; un adaptador USB Bluetooth 5 pequeño suele servir. |
 
 ¿Sigues atascado? **About → Report a problem** abre un informe de error con tu versión, Windows y
-modelo de iPad ya rellenos.
+modelo de iPad ya rellenos. **About → Diagnostics** muestra la conexión Bluetooth en detalle y
+tiene un botón **Copy log** para pegar el registro en el informe.
 
 ## Privacidad
 

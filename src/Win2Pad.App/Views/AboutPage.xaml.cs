@@ -25,6 +25,9 @@ public partial class AboutPage : Page
 
     private void OnCredits(object sender, RoutedEventArgs e) => ProjectLinks.Open(ProjectLinks.Credits);
 
+    private void OnDiagnostics(object sender, RoutedEventArgs e) =>
+        new DiagnosticsWindow { Owner = Window.GetWindow(this) }.Show();
+
     private void OnLogs(object sender, RoutedEventArgs e) =>
         Process.Start(new ProcessStartInfo(AppPaths.Root) { UseShellExecute = true });
 }

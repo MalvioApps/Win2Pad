@@ -52,6 +52,11 @@ public sealed record EdgeOptions
     /// <summary>Raised in this process after a successful save, so a running session picks it up.</summary>
     public static event Action<EdgeOptions>? Saved;
 
+    /// <summary>The settings format; older files get tuning values whose meaning changed reset.</summary>
+    public const int CurrentVersion = 2;
+
+    public int Version { get; init; } = CurrentVersion;
+
     public bool Enabled { get; init; } = true;
 
     /// <summary>
@@ -80,13 +85,16 @@ public sealed record EdgeOptions
 
     /// <summary>
     /// When the way back is through the tablet's top or bottom edge: moving towards it quickly
-    /// returns this share of the screen before it, so notifications, Control Center, the Dock
-    /// or the app switcher never get the time to open.
+    /// returns this share of the screen before reaching it. Off by default: it made any quick
+    /// slide upwards near the top a return. Kept for whoever prefers it.
     /// </summary>
-    public double VerticalReturnLead { get; init; } = 0.05;
+    public double VerticalReturnLead { get; init; }
 
-    /// <summary>The push past the top or bottom edge needed when approaching slowly; small for the same reason.</summary>
-    public double VerticalReturnMargin { get; init; } = 0.01;
+    /// <summary>
+    /// How far past the top or bottom edge to push to come back: a deliberate push, but short
+    /// enough that the tablet's own edge gestures (notifications, Dock) do not open first.
+    /// </summary>
+    public double VerticalReturnMargin { get; init; } = 0.03;
 
     /// <summary>Counts per report towards the edge that count as heading for it quickly.</summary>
     public int LeadMinSpeed { get; init; } = 4;
@@ -136,12 +144,37 @@ public sealed record EdgeOptions
         try
         {
             if (!File.Exists(path)) return new EdgeOptions();
-            return JsonSerializer.Deserialize<EdgeOptions>(File.ReadAllText(path), Json) ?? new EdgeOptions();
+            var loaded = JsonSerializer.Deserialize<EdgeOptions>(File.ReadAllText(path), Json) ?? new EdgeOptions();
+            return Migrate(loaded, ReadVersion(path));
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException)
         {
             return new EdgeOptions();
         }
+    }
+
+    /// <summary>
+    /// Brings settings written by an older version up to date. Version 1 (no version field)
+    /// returned at the tablet's top and bottom too eagerly: its early zone and tiny margin made a
+    /// small slide upwards a return, so those two go back to the current defaults.
+    /// </summary>
+    internal static EdgeOptions Migrate(EdgeOptions options, int fileVersion)
+    {
+        if (fileVersion >= CurrentVersion) return options;
+        var defaults = new EdgeOptions();
+        return options with
+        {
+            Version = CurrentVersion,
+            VerticalReturnLead = defaults.VerticalReturnLead,
+            VerticalReturnMargin = defaults.VerticalReturnMargin
+        };
+    }
+
+    /// <summary>The version written in the file; 1 for files from before the field existed.</summary>
+    private static int ReadVersion(string path)
+    {
+        using var document = JsonDocument.Parse(File.ReadAllText(path));
+        return document.RootElement.TryGetProperty(nameof(Version), out var v) && v.TryGetInt32(out var version) ? version : 1;
     }
 
     public bool TrySave(string? path, out string? error)

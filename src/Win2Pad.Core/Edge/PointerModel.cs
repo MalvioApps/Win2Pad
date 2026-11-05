@@ -80,10 +80,10 @@ public sealed class PointerModel
 
     /// <summary>
     /// With <see cref="EarlyReturn"/>: how many times moves towards the edge count. With a
-    /// measured curve the estimate is close, so a little headroom; without one, the acceleration
-    /// is unknown, so up to the assumed factor, capped so a slow approach is not cut short.
+    /// measured curve the estimate is close enough to trust as it is; without one, a mild bias,
+    /// capped low: a strong one turned a small slide upwards into a return.
     /// </summary>
-    public double TowardFactor => GainCurve is not null ? 1.15 : Math.Min(AwayFactor, 2.5);
+    public double TowardFactor => GainCurve is not null ? 1.0 : Math.Min(AwayFactor, 1.3);
 
     /// <summary>The early-return zone in counts.</summary>
     public int ReturnLeadCounts => (int)Math.Round(ReturnLead * ReturnExtent);

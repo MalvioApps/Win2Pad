@@ -49,6 +49,14 @@
       </StackPanel>
     </ui:CardAction>
 
+    <ui:CardAction Icon="{ui:SymbolIcon Stethoscope24}" Click="OnDiagnostics" Margin="0,0,0,8">
+      <StackPanel>
+        <ui:TextBlock Text="Diagnostics" FontTypography="BodyStrong" />
+        <ui:TextBlock Text="The Bluetooth connection in detail and the activity log." FontTypography="Caption"
+                      Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+      </StackPanel>
+    </ui:CardAction>
+
     <ui:CardAction Icon="{ui:SymbolIcon FolderOpen24}" Click="OnLogs">
       <StackPanel>
         <ui:TextBlock Text="Open the settings and logs folder" FontTypography="BodyStrong" />

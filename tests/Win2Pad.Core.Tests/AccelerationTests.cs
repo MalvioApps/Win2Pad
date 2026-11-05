@@ -80,19 +80,115 @@ public sealed class AccelerationTests
     }
 
     [Fact]
-    public void Without_a_curve_the_top_edge_errs_towards_returning_early()
+    public void Without_a_curve_the_top_edge_errs_only_mildly_towards_returning_early()
     {
         // Tablet below the PC, acceleration unknown (factor 6 from an old fine-tune).
-        var model = new PointerModel(Cal, TabletSide.Bottom, returnMargin: 0.01, awayFactor: 6,
-            returnLead: 0.05, leadMinSpeed: 4, earlyReturn: true);
+        var model = new PointerModel(Cal, TabletSide.Bottom, returnMargin: 0.02, awayFactor: 6, earlyReturn: true);
+        Assert.Equal(1.3, model.TowardFactor);
         model.Enter(0.5);                        // y = 20
         model.Move(0, 600, 1.0);                 // away: counted once, y = 620
 
-        // Back up at a steady pace: counted 2.5x, so the model reaches the lead zone after
-        // ~230 counts, long before the 600 it took to go down. Early, never late.
+        // Back up at a steady pace: counted 1.3x, so the edge is reached after ~477 counts and
+        // the 20-count push past it follows: a little early, never late, and never on a whim.
         var sent = 0;
         while (!model.Move(0, -10, 1.1 + sent * 0.0001)) sent += 10;
-        Assert.InRange(sent, 200, 260);
+        Assert.InRange(sent, 470, 510);
+    }
+
+    [Fact]
+    public void A_small_slide_up_near_the_top_does_not_return()
+    {
+        var options = new EdgeOptions { CalibrationWidth = 2000, CalibrationHeight = 1000 };
+        var model = options.CreateModel(TabletSide.Bottom); // the way back is up through the top
+        model.Enter(0.5);
+        model.Move(0, 100, 1.0);                 // a little below the top: y = 120
+
+        // A quick flick upwards that stops short of the edge.
+        Assert.False(model.Move(0, -40, 1.10));
+        Assert.False(model.Move(0, -40, 1.12));
+        Assert.True(model.Y > 0);
+    }
+
+    [Fact]
+    public void A_quick_flick_that_touches_the_top_does_not_return_either()
+    {
+        var options = new EdgeOptions { CalibrationWidth = 2000, CalibrationHeight = 1000 };
+        var model = options.CreateModel(TabletSide.Bottom);
+        model.Enter(0.5);
+        model.Move(0, 60, 1.0);                  // y = 80
+
+        // Counted 1.3x without a curve: 52 + 52 from y = 80 reaches the edge with 24 counts to
+        // spare, under the 3% (30-count) push.
+        Assert.False(model.Move(0, -40, 1.10));
+        Assert.False(model.Move(0, -40, 1.12));
+        Assert.Equal(0, model.Y);
+    }
+
+    [Fact]
+    public void A_deliberate_push_past_the_top_returns()
+    {
+        var options = new EdgeOptions { CalibrationWidth = 2000, CalibrationHeight = 1000 };
+        var model = options.CreateModel(TabletSide.Bottom);
+        model.Enter(0.5);
+        model.Move(0, 60, 1.0);                  // y = 80
+
+        var returned = false;
+        for (var i = 0; i < 12 && !returned; i++) returned = model.Move(0, -10, 1.1 + i * 0.015);
+        Assert.True(returned);                   // 80 to the edge, then past the 30-count margin
+    }
+
+    [Fact]
+    public void A_pause_at_the_top_starts_the_push_again()
+    {
+        var options = new EdgeOptions { CalibrationWidth = 2000, CalibrationHeight = 1000 };
+        var model = options.CreateModel(TabletSide.Bottom);
+        model.Enter(0.5);
+        model.Place(1000, 0);                    // resting exactly at the top
+        Assert.False(model.Move(0, -15, 1.1));   // 19.5 past (x1.3), under 30
+        Assert.False(model.Move(0, -15, 2.0));   // after a pause: counting from zero again
+        Assert.True(model.Move(0, -10, 2.05));   // 19.5 + 13 = 32.5 past, within the reset window
+    }
+
+    [Fact]
+    public void Old_settings_drop_the_eager_vertical_return()
+    {
+        var path = Path.Combine(Path.GetTempPath(), $"win2pad-edge-{Guid.NewGuid():N}.json");
+        try
+        {
+            // Written before the version field existed, with the old eager values.
+            File.WriteAllText(path, """
+                { "Enabled": true, "Side": "Bottom", "CalibrationWidth": 3371, "CalibrationHeight": 2524,
+                  "VerticalReturnLead": 0.05, "VerticalReturnMargin": 0.01, "AwayFactor": 6 }
+                """);
+            var loaded = EdgeOptions.Load(path);
+            Assert.Equal(EdgeOptions.CurrentVersion, loaded.Version);
+            Assert.Equal(0, loaded.VerticalReturnLead);
+            Assert.Equal(0.03, loaded.VerticalReturnMargin);
+            Assert.Equal(6, loaded.AwayFactor);  // everything else kept
+            Assert.Equal(3371, loaded.CalibrationWidth);
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
+    [Fact]
+    public void Current_settings_keep_their_vertical_values()
+    {
+        var path = Path.Combine(Path.GetTempPath(), $"win2pad-edge-{Guid.NewGuid():N}.json");
+        try
+        {
+            var custom = new EdgeOptions { VerticalReturnLead = 0.03, VerticalReturnMargin = 0.05 };
+            Assert.True(custom.TrySave(path, out _));
+            var loaded = EdgeOptions.Load(path);
+            Assert.Equal(0.03, loaded.VerticalReturnLead);
+            Assert.Equal(0.05, loaded.VerticalReturnMargin);
+        }
+        finally
+        {
+            File.Delete(path);
+        }
     }
 
     [Fact]

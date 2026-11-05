@@ -20,8 +20,12 @@ public partial class CalibrationWindow : FluentWindow
     private CalibrationServer? _server;
     private CancellationTokenSource? _run;
 
-    public CalibrationWindow()
+    private readonly string? _deviceId;
+
+    /// <param name="deviceId">The tablet to calibrate; the first connected one when null.</param>
+    public CalibrationWindow(string? deviceId = null)
     {
+        _deviceId = deviceId;
         InitializeComponent();
         Loaded += OnLoaded;
         Closed += OnClosed;
@@ -65,10 +69,12 @@ public partial class CalibrationWindow : FluentWindow
         if (_server is null) return;
         var service = PeripheralService.Instance;
         var peripheral = service.Peripheral;
-        var host = service.Hosts.FirstOrDefault();
+        var host = _deviceId is null
+            ? service.Hosts.FirstOrDefault()
+            : service.Hosts.FirstOrDefault(h => string.Equals(h.DeviceId, _deviceId, StringComparison.OrdinalIgnoreCase));
         if (peripheral is null || host is null)
         {
-            ShowStatus(InfoBarSeverity.Warning, "No iPad connected", "Start the peripheral and connect the iPad over Bluetooth first.");
+            ShowStatus(InfoBarSeverity.Warning, "iPad not connected", "Start the peripheral and connect this iPad over Bluetooth first.");
             return;
         }
 

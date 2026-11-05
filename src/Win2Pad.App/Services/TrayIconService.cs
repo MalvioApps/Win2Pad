@@ -19,10 +19,14 @@ public sealed class TrayIconService : IDisposable
     private string _target = "nothing yet";
     private string? _lockWarning;
 
-    public TrayIconService(Action open, Action exit)
+    /// <param name="extend">Adds the app's own items between Open and Exit.</param>
+    public TrayIconService(Action open, Action exit, Action<Forms.ContextMenuStrip>? extend = null)
     {
         var menu = new Forms.ContextMenuStrip();
-        menu.Items.Add("Open Win2Pad", null, (_, _) => open());
+        var openItem = menu.Items.Add("Open Win2Pad", null, (_, _) => open());
+        openItem.Font = new Drawing.Font(openItem.Font, Drawing.FontStyle.Bold);
+        menu.Items.Add(new Forms.ToolStripSeparator());
+        extend?.Invoke(menu);
         menu.Items.Add(new Forms.ToolStripSeparator());
         menu.Items.Add("Exit", null, (_, _) => exit());
 
@@ -79,7 +83,8 @@ public sealed class TrayIconService : IDisposable
         _icon.Text = text.Length <= 63 ? text : text[..63];
     }
 
-    private static Drawing.Color StateColor(LinkState state) => state switch
+    /// <summary>The colour of each state, shared by the tray icon and the floating indicator.</summary>
+    public static Drawing.Color StateColor(LinkState state) => state switch
     {
         LinkState.Off => Drawing.Color.FromArgb(0x7A, 0x7A, 0x7A),
         LinkState.Waiting => Drawing.Color.FromArgb(0xE0, 0x8E, 0x00),

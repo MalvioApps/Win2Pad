@@ -3,6 +3,22 @@ using System.Text.Json.Serialization;
 
 namespace Win2Pad.Core.Edge;
 
+/// <summary>
+/// The tablet against one side of one monitor. <see cref="Offset"/> and <see cref="Length"/> are
+/// where the tablet's edge starts and how long it is along that side, in desktop pixels (x for
+/// Top/Bottom, y for Left/Right). The tablet may overhang the monitor; only the overlap crosses.
+/// </summary>
+public sealed record TabletPlacement(ScreenRect Monitor, TabletSide Side, int Offset, int Length)
+{
+    public int MonitorStart => Side is TabletSide.Top or TabletSide.Bottom ? Monitor.Left : Monitor.Top;
+    public int MonitorEnd => Side is TabletSide.Top or TabletSide.Bottom ? Monitor.Right : Monitor.Bottom;
+
+    /// <summary>Where the pointer can cross: the stretch of the monitor's side the tablet touches.</summary>
+    public (int Start, int End) Overlap => (Math.Max(Offset, MonitorStart), Math.Min(Offset + Length, MonitorEnd));
+
+    public bool Touches => Overlap.End > Overlap.Start;
+}
+
 /// <summary>Edge switching settings, stored as JSON next to the other settings.</summary>
 public sealed record EdgeOptions
 {
@@ -19,8 +35,20 @@ public sealed record EdgeOptions
 
     public bool Enabled { get; init; } = true;
 
-    /// <summary>Where the tablet sits relative to the PC screen.</summary>
+    /// <summary>
+    /// Where the tablet sits relative to the PC screens when no placement is set: any monitor
+    /// edge on that side with no other monitor beyond it leads to the tablet.
+    /// </summary>
     public TabletSide Side { get; init; } = TabletSide.Right;
+
+    /// <summary>
+    /// The tablet placed against one side of one monitor by the arrangement editor. When set, the
+    /// pointer crosses only where the two touch, and positions map along the tablet's own edge.
+    /// </summary>
+    public TabletPlacement? Placement { get; init; }
+
+    [JsonIgnore]
+    public TabletSide EffectiveSide => Placement?.Side ?? Side;
 
     /// <summary>Tablet screen size in HID counts at slow speed. Zero means not calibrated.</summary>
     public int CalibrationWidth { get; init; }

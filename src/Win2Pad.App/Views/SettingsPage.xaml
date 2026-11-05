@@ -103,6 +103,18 @@
 
     <ui:TextBlock Text="Other" FontTypography="BodyStrong" Margin="0,12,0,8" />
 
+    <ui:CardControl Icon="{ui:SymbolIcon PictureInPicture24}" Margin="0,0,0,8">
+      <ui:CardControl.Header>
+        <StackPanel>
+          <ui:TextBlock Text="Floating indicator" FontTypography="BodyStrong" />
+          <ui:TextBlock FontTypography="Caption" TextWrapping="Wrap"
+                        Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                        Text="A small always-on-top label showing whether the input is on this PC or the tablet. Drag it anywhere; right-click to hide it." />
+        </StackPanel>
+      </ui:CardControl.Header>
+      <ui:ToggleSwitch IsChecked="{Binding ShowIndicator, Mode=TwoWay}" />
+    </ui:CardControl>
+
     <ui:CardControl Icon="{ui:SymbolIcon Cursor24}" Margin="0,0,0,8">
       <ui:CardControl.Header>
         <StackPanel>

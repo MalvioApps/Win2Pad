@@ -17,6 +17,8 @@ public sealed class EdgeSwitcher
     private readonly EdgePush _push;
     private PointerModel? _model;
     private ScreenRect _entryMonitor;
+    // The tablet's edge along the monitor side, in desktop pixels: where positions map to and from.
+    private int _spanStart, _spanLength;
     private double _returnedAt = double.NegativeInfinity;
 
     public EdgeSwitcher(EdgeOptions options, IScreens screens, Func<double> clock)
@@ -72,26 +74,48 @@ public sealed class EdgeSwitcher
             var (x, y) = _screens.CursorPosition();
             if (_screens.MonitorAt(x, y) is not { } mon) return null;
 
-            var (atEdge, toward) = Options.Side switch
+            var side = Options.EffectiveSide;
+            var horizontal = side is TabletSide.Top or TabletSide.Bottom;
+            var along = horizontal ? x : y;
+            int spanStart, spanLength, crossStart, crossEnd;
+            if (Options.Placement is { } placement)
+            {
+                // Only the monitor the tablet was placed against, and only where they touch.
+                if (mon != placement.Monitor || !placement.Touches)
+                {
+                    _push.Reset();
+                    return null;
+                }
+                (spanStart, spanLength) = (placement.Offset, placement.Length);
+                (crossStart, crossEnd) = placement.Overlap;
+            }
+            else
+            {
+                spanStart = horizontal ? mon.Left : mon.Top;
+                spanLength = horizontal ? mon.Width : mon.Height;
+                (crossStart, crossEnd) = (spanStart, spanStart + spanLength);
+            }
+
+            var (atEdge, toward) = side switch
             {
                 TabletSide.Top => (y <= mon.Top && _screens.MonitorAt(x, mon.Top - 1) is null, -dy),
                 TabletSide.Bottom => (y >= mon.Bottom - 1 && _screens.MonitorAt(x, mon.Bottom) is null, dy),
                 TabletSide.Left => (x <= mon.Left && _screens.MonitorAt(mon.Left - 1, y) is null, -dx),
                 _ => (x >= mon.Right - 1 && _screens.MonitorAt(mon.Right, y) is null, dx)
             };
+            atEdge &= along >= crossStart && along < crossEnd;
             if (!_push.Feed(atEdge, toward, now)) return null;
 
             _push.Reset();
-            var fraction = Options.Side is TabletSide.Top or TabletSide.Bottom
-                ? (x - mon.Left) / (double)Math.Max(1, mon.Width - 1)
-                : (y - mon.Top) / (double)Math.Max(1, mon.Height - 1);
+            var fraction = Math.Clamp((along - spanStart) / (double)Math.Max(1, spanLength - 1), 0, 1);
 
-            _model = new PointerModel(Options.Calibration, Options.Side, Options.ReturnMargin, Options.AwayFactor);
+            _model = new PointerModel(Options.Calibration, side, Options.ReturnMargin, Options.AwayFactor);
             var moves = _model.Enter(fraction);
             // The entry moves take two settle pauses before any user motion reaches the tablet.
             var settle = moves.Sum(m => m.SettleMs) / 1000.0;
             _model.ArmAfter(now + settle + Options.ExitGraceSeconds);
             _entryMonitor = mon;
+            (_spanStart, _spanLength) = (spanStart, spanLength);
             IsRemote = true;
             return new EdgeEntry(mon, fraction, moves);
         }
@@ -109,15 +133,20 @@ public sealed class EdgeSwitcher
             var now = _clock();
             if (!_model.Move(dx, dy, now)) return null;
 
-            var fraction = _model.FractionAlongEdge();
             var mon = _entryMonitor;
             var gap = Options.ReturnGapPixels;
-            (int X, int Y) point = Options.Side switch
+            var side = _model.Side;
+            var horizontal = side is TabletSide.Top or TabletSide.Bottom;
+            // Back to the same place along the tablet's edge; where the tablet overhangs the
+            // monitor, the nearest point the monitor still has.
+            var along = _spanStart + (int)Math.Round(_model.FractionAlongEdge() * (_spanLength - 1));
+            along = horizontal ? Math.Clamp(along, mon.Left, mon.Right - 1) : Math.Clamp(along, mon.Top, mon.Bottom - 1);
+            (int X, int Y) point = side switch
             {
-                TabletSide.Top => (mon.Left + (int)Math.Round(fraction * (mon.Width - 1)), mon.Top + gap),
-                TabletSide.Bottom => (mon.Left + (int)Math.Round(fraction * (mon.Width - 1)), mon.Bottom - 1 - gap),
-                TabletSide.Left => (mon.Left + gap, mon.Top + (int)Math.Round(fraction * (mon.Height - 1))),
-                _ => (mon.Right - 1 - gap, mon.Top + (int)Math.Round(fraction * (mon.Height - 1)))
+                TabletSide.Top => (along, mon.Top + gap),
+                TabletSide.Bottom => (along, mon.Bottom - 1 - gap),
+                TabletSide.Left => (mon.Left + gap, along),
+                _ => (mon.Right - 1 - gap, along)
             };
 
             GoLocalLocked(now);

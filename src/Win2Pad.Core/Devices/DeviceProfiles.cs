@@ -19,7 +19,15 @@ public sealed record OrientationCalibration(int Width, int Height, double AwayFa
 public sealed record DeviceProfile
 {
     public required string DeviceId { get; init; }
+    /// <summary>The name the tablet reports over Bluetooth, refreshed on every connection.</summary>
     public string? Name { get; init; }
+
+    /// <summary>A name the user gave it; kept across connections.</summary>
+    public string? CustomName { get; init; }
+
+    [JsonIgnore]
+    public string DisplayName => CustomName ?? ModelName ?? Name ?? "Tablet";
+
     public string? ModelIdentifier { get; init; }
     public string? ModelName { get; init; }
     public CalibrationSource Source { get; init; }

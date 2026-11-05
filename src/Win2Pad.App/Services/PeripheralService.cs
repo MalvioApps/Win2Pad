@@ -90,6 +90,31 @@ public sealed class PeripheralService : INotifyPropertyChanged
         ApplyActiveProfile();
     }
 
+    /// <summary>
+    /// Forgets a tablet: its profile always, and optionally the Windows side of the Bluetooth
+    /// pairing. Returns what happened, for the user.
+    /// </summary>
+    public async Task<string> ForgetDeviceAsync(string deviceId, bool unpair)
+    {
+        Profiles.Remove(deviceId);
+        _identified.Remove(deviceId);
+        var outcome = "Forgotten.";
+        if (unpair)
+        {
+            try
+            {
+                outcome = $"Forgotten and {await TabletIdentity.UnpairAsync(deviceId)}.";
+            }
+            catch (Exception ex)
+            {
+                outcome = $"Forgotten, but unpairing failed: {ex.Message}";
+            }
+        }
+        Append($"[device] {deviceId}: {outcome}");
+        ApplyActiveProfile();
+        return outcome;
+    }
+
     /// <summary>Puts the active tablet's calibration into the edge settings, which a running session picks up.</summary>
     public void ApplyActiveProfile()
     {
@@ -100,6 +125,13 @@ public sealed class PeripheralService : INotifyPropertyChanged
 
         var current = EdgeOptions.Load();
         var updated = profile.ApplyTo(current);
+        // A tablet turned round is longer or shorter along the edge it was placed against.
+        if (updated.Placement is { } placement)
+        {
+            var (w, h) = Arrangement.TabletSize(updated.Calibration);
+            var along = placement.Side is TabletSide.Top or TabletSide.Bottom ? w : h;
+            updated = updated with { Placement = Arrangement.Resize(placement, along) };
+        }
         if (updated != current && !updated.TrySave(null, out var error))
             Append($"[device] could not save the calibration: {error}");
     }

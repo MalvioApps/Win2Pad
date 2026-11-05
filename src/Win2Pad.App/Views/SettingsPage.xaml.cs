@@ -82,7 +82,7 @@ public partial class SettingsPage : Page
         var options = EdgeOptions.Load();
         EdgeToggle.IsChecked = options.Enabled;
         SideCombo.SelectedItem = SideCombo.Items.OfType<ComboBoxItem>()
-            .First(item => (string)item.Tag == options.Side.ToString());
+            .First(item => (string)item.Tag == options.EffectiveSide.ToString());
         _loadingEdge = false;
     }
 
@@ -97,6 +97,8 @@ public partial class SettingsPage : Page
             ? parsed
             : current.Side;
         var updated = current with { Enabled = EdgeToggle.IsChecked == true, Side = side };
+        // Choosing a side here replaces a placement made in the arrangement editor.
+        if (side != current.EffectiveSide) updated = updated with { Placement = null };
         if (updated == current) return;
 
         if (!updated.TrySave(null, out var error))

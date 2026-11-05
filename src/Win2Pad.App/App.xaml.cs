@@ -2,6 +2,7 @@ using System.IO;
 using System.Windows;
 using System.Windows.Threading;
 using Win2Pad.App.Services;
+using Win2Pad.App.Views;
 using Win2Pad.Core;
 using Wpf.Ui.Appearance;
 
@@ -19,6 +20,8 @@ public partial class App : Application
     public new static App Current => (App)Application.Current;
 
     public TrayIconService? Tray { get; private set; }
+
+    public IndicatorWindow? Indicator { get; private set; }
 
     public bool IsExiting => _exiting;
 
@@ -44,10 +47,16 @@ public partial class App : Application
         AppDomain.CurrentDomain.UnhandledException += (_, args) => Report(args.ExceptionObject as Exception);
         base.OnStartup(e);
 
-        Tray = new TrayIconService(ShowMainWindow, ExitApplication);
+        Tray = new TrayIconService(ShowMainWindow, ExitApplication, ExtendTrayMenu);
+        Indicator = new IndicatorWindow();
+        ApplyIndicatorVisibility();
+        AppSettings.Instance.PropertyChanged += (_, args) =>
+        {
+            if (args.PropertyName == nameof(AppSettings.ShowIndicator)) Dispatcher.Invoke(ApplyIndicatorVisibility);
+        };
 
-        // The tray is the only surface visible while the window is hidden, which is exactly when
-        // a lock left on a remote host would otherwise go unnoticed.
+        // The tray and the indicator are the only surfaces visible while the window is hidden,
+        // which is exactly when a lock left on a remote host would otherwise go unnoticed.
         var peripheral = PeripheralService.Instance;
         peripheral.PropertyChanged += (_, args) =>
         {
@@ -55,9 +64,8 @@ public partial class App : Application
                 Dispatcher.Invoke(() => Tray?.UpdateStatus(peripheral.Target, peripheral.TargetLockWarning));
 
             if (args.PropertyName is nameof(peripheral.IsRunning) or nameof(peripheral.KeyboardSubscribers)
-                or nameof(peripheral.IsRedirecting))
-                Dispatcher.Invoke(() => Tray?.SetState(LinkStates.From(
-                    peripheral.IsRunning, peripheral.KeyboardSubscribers, peripheral.IsRedirecting)));
+                or nameof(peripheral.IsRedirecting) or nameof(peripheral.ActiveProfile))
+                Dispatcher.Invoke(UpdateLinkState);
         };
 
         var startHidden = e.Args.Contains(StartupService.TrayArgument, StringComparer.OrdinalIgnoreCase);
@@ -67,6 +75,56 @@ public partial class App : Application
         // Auto-start matters most for the hidden launch, where there is no window to press Start in.
         if (startHidden) _ = StartResidentAsync();
         else if (AppSettings.Instance.StartPeripheralOnLaunch) _ = PeripheralService.Instance.StartAsync();
+    }
+
+    private void UpdateLinkState()
+    {
+        var peripheral = PeripheralService.Instance;
+        var state = LinkStates.From(peripheral.IsRunning, peripheral.KeyboardSubscribers, peripheral.IsRedirecting);
+        Tray?.SetState(state);
+        Indicator?.Update(state, peripheral.ActiveProfile?.DisplayName);
+    }
+
+    private void ApplyIndicatorVisibility()
+    {
+        if (Indicator is null) return;
+        if (AppSettings.Instance.ShowIndicator) Indicator.Show();
+        else Indicator.Hide();
+    }
+
+    /// <summary>Quick actions in the tray menu, refreshed each time it opens.</summary>
+    private void ExtendTrayMenu(System.Windows.Forms.ContextMenuStrip menu)
+    {
+        var indicator = new System.Windows.Forms.ToolStripMenuItem("Show floating indicator");
+        indicator.Click += (_, _) => AppSettings.Instance.ShowIndicator = !AppSettings.Instance.ShowIndicator;
+
+        var portrait = new System.Windows.Forms.ToolStripMenuItem("Tablet in portrait");
+        portrait.Click += (_, _) => Dispatcher.Invoke(() =>
+        {
+            var service = PeripheralService.Instance;
+            if (service.ActiveProfile is not { } profile) return;
+            service.Profiles.Save(profile with { Landscape = !profile.Landscape });
+            service.ApplyActiveProfile();
+        });
+
+        var fineTune = new System.Windows.Forms.ToolStripMenuItem("Fine-tune with Safari…");
+        fineTune.Click += (_, _) => Dispatcher.Invoke(() =>
+        {
+            ShowMainWindow();
+            new Views.CalibrationWindow { Owner = MainWindow }.ShowDialog();
+        });
+
+        menu.Items.Add(indicator);
+        menu.Items.Add(portrait);
+        menu.Items.Add(fineTune);
+        menu.Opening += (_, _) =>
+        {
+            var profile = PeripheralService.Instance.ActiveProfile;
+            indicator.Checked = AppSettings.Instance.ShowIndicator;
+            portrait.Enabled = profile is not null;
+            portrait.Checked = profile is { Landscape: false };
+            fineTune.Enabled = PeripheralService.Instance.Hosts.Count > 0;
+        };
     }
 
     // A tray-only launch has no UI to arm capture from, so the hotkeys have to work on their own.
@@ -132,6 +190,7 @@ public partial class App : Application
         _exiting = true;
         await PeripheralService.Instance.StopAsync();
         Tray?.Dispose();
+        Indicator?.Close();
         // Shutdown closes windows, so it must not run inside a close that is still unwinding.
         await Dispatcher.InvokeAsync(Shutdown);
     }

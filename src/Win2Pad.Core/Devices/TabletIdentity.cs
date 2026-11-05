@@ -1,6 +1,7 @@
 using System.Text;
 using Windows.Devices.Bluetooth;
 using Windows.Devices.Bluetooth.GenericAttributeProfile;
+using Windows.Devices.Enumeration;
 using Windows.Storage.Streams;
 
 namespace Win2Pad.Core.Devices;
@@ -39,6 +40,23 @@ public static class TabletIdentity
         }
 
         return new TabletInfo(device.Name, manufacturer, model);
+    }
+
+    /// <summary>
+    /// Removes the Windows side of the Bluetooth pairing. The tablet keeps its own record until
+    /// the user forgets the device there too. Returns a short description of the outcome.
+    /// </summary>
+    public static async Task<string> UnpairAsync(string deviceId)
+    {
+        var info = await DeviceInformation.CreateFromIdAsync(deviceId);
+        if (!info.Pairing.IsPaired) return "not paired";
+        var result = await info.Pairing.UnpairAsync();
+        return result.Status switch
+        {
+            DeviceUnpairingResultStatus.Unpaired or DeviceUnpairingResultStatus.AlreadyUnpaired => "unpaired",
+            DeviceUnpairingResultStatus.AccessDenied => "Windows refused to unpair it",
+            _ => $"unpairing failed ({result.Status})"
+        };
     }
 
     private static async Task<string?> ReadStringAsync(GattDeviceService service, Guid uuid, CancellationToken cancellationToken)

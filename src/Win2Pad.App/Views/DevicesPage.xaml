@@ -1,0 +1,22 @@
+<Page x:Class="Win2Pad.App.Views.DevicesPage"
+      xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+      xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+      xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+      Foreground="{DynamicResource TextFillColorPrimaryBrush}"
+      Title="Devices">
+
+  <StackPanel Margin="24,0,24,24">
+    <ui:TextBlock Text="Devices" FontTypography="TitleLarge" Margin="0,0,0,4" />
+    <ui:TextBlock FontTypography="Body" Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                  TextWrapping="Wrap" Margin="0,0,0,20"
+                  Text="Tablets Win2Pad remembers. Each keeps its calibration and orientation, so reconnecting needs no setup." />
+
+    <ui:InfoBar x:Name="Notice" IsOpen="False" IsClosable="True" Margin="0,0,0,12" />
+
+    <ui:TextBlock x:Name="Empty" Visibility="Collapsed" Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                  TextWrapping="Wrap"
+                  Text="No tablets yet. Start the peripheral and pair your iPad from its Settings → Bluetooth; it appears here as soon as it connects." />
+
+    <StackPanel x:Name="List" />
+  </StackPanel>
+</Page>

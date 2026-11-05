@@ -29,6 +29,28 @@ public sealed class AppSettings : INotifyPropertyChanged
         set { if (Set(ref _startPeripheralOnLaunch, value)) Save(); }
     }
 
+    private bool _showIndicator = true;
+    /// <summary>A small always-on-top pill showing which screen has the input.</summary>
+    public bool ShowIndicator
+    {
+        get => _showIndicator;
+        set { if (Set(ref _showIndicator, value)) Save(); }
+    }
+
+    private double? _indicatorLeft, _indicatorTop;
+    /// <summary>Where the user dragged the indicator, in WPF units; null for the default corner.</summary>
+    public double? IndicatorLeft
+    {
+        get => _indicatorLeft;
+        set { if (Set(ref _indicatorLeft, value)) Save(); }
+    }
+
+    public double? IndicatorTop
+    {
+        get => _indicatorTop;
+        set { if (Set(ref _indicatorTop, value)) Save(); }
+    }
+
     private static AppSettings Load()
     {
         try

@@ -21,6 +21,13 @@
                     FontTypography="Body" Foreground="{DynamicResource TextFillColorSecondaryBrush}"
                     TextWrapping="Wrap" Margin="0,0,0,20" />
 
+      <ui:Card x:Name="GetStarted" Margin="0,0,0,16" Padding="20,16">
+        <StackPanel>
+          <ui:TextBlock x:Name="GetStartedTitle" Text="Get started" FontTypography="Subtitle" Margin="0,0,0,10" />
+          <StackPanel x:Name="Steps" />
+        </StackPanel>
+      </ui:Card>
+
       <ui:InfoBar Severity="Warning" IsClosable="False" Margin="0,0,0,16"
                   Title="Not advertising"
                   Message="Start the peripheral to make this PC discoverable as a Bluetooth keyboard."

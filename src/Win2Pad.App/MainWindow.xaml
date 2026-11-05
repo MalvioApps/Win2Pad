@@ -43,6 +43,18 @@
           </ui:NavigationViewItem.Icon>
         </ui:NavigationViewItem>
 
+        <ui:NavigationViewItem Content="Arrangement" TargetPageType="{x:Type views:ArrangementPage}">
+          <ui:NavigationViewItem.Icon>
+            <ui:SymbolIcon Symbol="Desktop24" />
+          </ui:NavigationViewItem.Icon>
+        </ui:NavigationViewItem>
+
+        <ui:NavigationViewItem Content="Devices" TargetPageType="{x:Type views:DevicesPage}">
+          <ui:NavigationViewItem.Icon>
+            <ui:SymbolIcon Symbol="Tablet24" />
+          </ui:NavigationViewItem.Icon>
+        </ui:NavigationViewItem>
+
         <ui:NavigationViewItem Content="Capture" TargetPageType="{x:Type views:CapturePage}">
           <ui:NavigationViewItem.Icon>
             <ui:SymbolIcon Symbol="Keyboard24" />

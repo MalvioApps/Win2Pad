@@ -155,13 +155,86 @@ public sealed class EdgeSwitcherTests
         Assert.True(switcher.IsTracking);
     }
 
+    // ---- placement from the arrangement editor ------------------------------------------------
+
+    /// <summary>A 1000-pixel-tall tablet on the right of Main, starting 400 px down: it overhangs the bottom by 320 px.</summary>
+    private static readonly TabletPlacement RightLow = new(Main, TabletSide.Right, 400, 1000);
+
+    private EdgeSwitcher CreatePlaced(FakeScreens screens, TabletPlacement placement) =>
+        new(new EdgeOptions
+        {
+            Side = TabletSide.Left, // ignored: the placement decides
+            Placement = placement,
+            CalibrationWidth = 2000,
+            CalibrationHeight = 1500
+        }, screens, () => _now);
+
+    [Fact]
+    public void A_placed_tablet_is_entered_only_where_it_touches_the_monitor()
+    {
+        var screens = new FakeScreens(Main) { Cursor = (1919, 200) }; // above the tablet
+        var switcher = CreatePlaced(screens, RightLow);
+        Assert.Null(switcher.OnLocalMotion(50, 0, false));
+
+        screens.Cursor = (1919, 900);
+        var entry = switcher.OnLocalMotion(50, 0, false);
+        Assert.NotNull(entry);
+        Assert.Equal((900 - 400) / 999.0, entry.Fraction, 6); // half way down the tablet
+    }
+
+    [Fact]
+    public void A_placed_tablet_ignores_the_other_monitors()
+    {
+        var screens = new FakeScreens(Main, LeftMonitor) { Cursor = (-1920, 500) };
+        var switcher = CreatePlaced(screens, new TabletPlacement(Main, TabletSide.Right, 0, 1080));
+        Assert.Null(switcher.OnLocalMotion(-50, 0, false));
+        Assert.Null(switcher.OnLocalMotion(50, 0, false));
+    }
+
+    [Fact]
+    public void Returning_maps_along_the_tablet_and_clamps_to_the_monitor()
+    {
+        var screens = new FakeScreens(Main) { Cursor = (1919, 900) };
+        var switcher = CreatePlaced(screens, RightLow);
+        switcher.OnLocalMotion(50, 0, false);
+        _now += 2;
+
+        // Down to the bottom of the tablet, which is below the bottom of the monitor.
+        switcher.OnRemoteMotion(0, 5000);
+        var back = switcher.OnRemoteMotion(-5000, 0);
+        Assert.Equal((1919 - 8, 1079), back);
+    }
+
+    [Fact]
+    public void A_placement_that_does_not_touch_its_monitor_never_enters()
+    {
+        var screens = new FakeScreens(Main) { Cursor = (1919, 500) };
+        var switcher = CreatePlaced(screens, new TabletPlacement(Main, TabletSide.Right, 2000, 800));
+        Assert.Null(switcher.OnLocalMotion(500, 0, false));
+    }
+
+    [Fact]
+    public void Placement_overlap_is_the_shared_stretch()
+    {
+        Assert.Equal((400, 1080), RightLow.Overlap);
+        Assert.True(RightLow.Touches);
+        var above = new TabletPlacement(Main, TabletSide.Top, -300, 1080);
+        Assert.Equal((0, 780), above.Overlap);
+    }
+
     [Fact]
     public void Options_round_trip_through_json()
     {
         var path = Path.Combine(Path.GetTempPath(), $"win2pad-edge-{Guid.NewGuid():N}.json");
         try
         {
-            var options = new EdgeOptions { Side = TabletSide.Top, CalibrationWidth = 3318, CalibrationHeight = 2536 };
+            var options = new EdgeOptions
+            {
+                Side = TabletSide.Top,
+                CalibrationWidth = 3318,
+                CalibrationHeight = 2536,
+                Placement = new TabletPlacement(new ScreenRect(-1920, 0, 0, 1080), TabletSide.Left, 120, 810)
+            };
             Assert.True(options.TrySave(path, out _));
             Assert.Equal(options, EdgeOptions.Load(path));
         }

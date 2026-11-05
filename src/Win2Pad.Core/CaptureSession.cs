@@ -124,7 +124,7 @@ public static class CaptureSession
         {
             log(!options.Enabled ? "  [edge] edge switching disabled"
                 : !options.Calibration.IsValid ? "  [edge] edge switching needs a calibration"
-                : $"  [edge] tablet on the {options.Side.ToString().ToLowerInvariant()}, calibration {options.CalibrationWidth}x{options.CalibrationHeight}");
+                : $"  [edge] tablet on the {options.EffectiveSide.ToString().ToLowerInvariant()}{(options.Placement is null ? "" : " of the arranged monitor")}, calibration {options.CalibrationWidth}x{options.CalibrationHeight}");
             return new EdgeSwitcher(options, new Win32Screens(), Seconds);
         }
 

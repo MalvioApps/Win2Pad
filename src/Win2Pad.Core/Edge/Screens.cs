@@ -36,6 +36,28 @@ public sealed class Win32Screens : IScreens
 
     public static void SetCursor(int x, int y) => SetCursorPos(x, y);
 
+    /// <summary>Every monitor, primary first, in physical pixels.</summary>
+    public static IReadOnlyList<(ScreenRect Bounds, bool Primary)> All()
+    {
+        var monitors = new List<(ScreenRect, bool)>();
+        EnumDisplayMonitors(IntPtr.Zero, IntPtr.Zero, (monitor, _, _, _) =>
+        {
+            var info = new MONITORINFO { cbSize = Marshal.SizeOf<MONITORINFO>() };
+            if (GetMonitorInfo(monitor, ref info))
+                monitors.Add((new ScreenRect(info.rcMonitor.left, info.rcMonitor.top, info.rcMonitor.right, info.rcMonitor.bottom),
+                    (info.dwFlags & MONITORINFOF_PRIMARY) != 0));
+            return true;
+        }, IntPtr.Zero);
+        return monitors.OrderByDescending(m => m.Item2).ThenBy(m => m.Item1.Left).ThenBy(m => m.Item1.Top).ToList();
+    }
+
+    private const uint MONITORINFOF_PRIMARY = 1;
+
+    private delegate bool MonitorEnumProc(IntPtr monitor, IntPtr hdc, IntPtr rect, IntPtr data);
+
+    [DllImport("user32.dll")]
+    private static extern bool EnumDisplayMonitors(IntPtr hdc, IntPtr clip, MonitorEnumProc callback, IntPtr data);
+
     [StructLayout(LayoutKind.Sequential)]
     private struct POINT { public int x, y; }
 

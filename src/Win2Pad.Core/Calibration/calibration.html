@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>Win2Pad calibration</title>
+<style>
+  :root { color-scheme: light dark; --bg: #f4f6fa; --fg: #16181d; --muted: #5d6573; --card: #ffffff;
+          --accent: #1f6feb; --ok: #1e9e4f; --bad: #c62828; }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #111317; --fg: #eef1f5; --muted: #9aa3b2; --card: #1b1e24; }
+  }
+  html, body { margin: 0; height: 100%; overflow: hidden; touch-action: none; -webkit-user-select: none; user-select: none;
+    background: var(--bg); color: var(--fg); font: 17px -apple-system, system-ui, sans-serif; }
+  main { height: 100%; display: flex; align-items: center; justify-content: center; }
+  .card { width: min(560px, 86vw); background: var(--card); border-radius: 20px; padding: 32px 36px;
+    box-shadow: 0 8px 30px rgba(0,0,0,.08); }
+  h1 { font-size: 26px; margin: 0 0 6px; }
+  p { margin: 0 0 18px; color: var(--muted); line-height: 1.45; }
+  #step { font-size: 20px; font-weight: 600; margin-bottom: 12px; }
+  .bar { height: 10px; border-radius: 5px; background: rgba(127,127,127,.2); overflow: hidden; }
+  .bar > div { height: 100%; width: 0; background: var(--accent); transition: width .3s; }
+  .done #step { color: var(--ok); } .done .bar > div { background: var(--ok); }
+  .failed #step { color: var(--bad); } .failed .bar > div { background: var(--bad); }
+  #conn { margin-top: 16px; font-size: 14px; color: var(--muted); }
+  #dot { position: fixed; width: 18px; height: 18px; margin: -9px 0 0 -9px; border-radius: 50%;
+    border: 3px solid var(--accent); pointer-events: none; display: none; }
+</style>
+</head>
+<body>
+<main>
+  <div class="card" id="card">
+    <h1>Win2Pad calibration</h1>
+    <p>Keep this page open and in front, and don't touch the iPad. Win2Pad will move the pointer by
+      itself to measure your screen. Start it from the calibration window on your PC.</p>
+    <div id="step">Waiting for your PC…</div>
+    <div class="bar"><div id="fill"></div></div>
+    <div id="conn">Connecting…</div>
+  </div>
+</main>
+<div id="dot"></div>
+<script>
+const key = new URLSearchParams(location.search).get('k');
+const conn = document.getElementById('conn');
+const dot = document.getElementById('dot');
+let ws = null;
+
+function hello() {
+  if (!ws || ws.readyState !== 1) return;
+  ws.send(JSON.stringify({ type: 'hello', sw: screen.width, sh: screen.height,
+    vw: Math.round(innerWidth), vh: Math.round(innerHeight) }));
+}
+
+function connect() {
+  ws = new WebSocket(`ws://${location.host}/ws?k=${encodeURIComponent(key || '')}`);
+  ws.onopen = () => { conn.textContent = 'Connected to your PC'; hello(); };
+  ws.onclose = () => { conn.textContent = 'Disconnected - retrying…'; setTimeout(connect, 1500); };
+  ws.onmessage = ev => {
+    const m = JSON.parse(ev.data);
+    if (m.type !== 'status') return;
+    document.getElementById('step').textContent = m.text;
+    document.getElementById('fill').style.width = Math.round(m.progress * 100) + '%';
+    document.getElementById('card').className = 'card ' + (m.state || '');
+  };
+}
+
+// Every position the page sees goes to the PC at once: the calibration waits on these.
+addEventListener('pointermove', ev => {
+  if (ws && ws.readyState === 1) ws.send(JSON.stringify({ type: 'move', x: ev.clientX, y: ev.clientY }));
+  dot.style.display = 'block';
+  dot.style.left = ev.clientX + 'px';
+  dot.style.top = ev.clientY + 'px';
+});
+addEventListener('resize', hello);
+addEventListener('orientationchange', () => setTimeout(hello, 300));
+connect();
+</script>
+</body>
+</html>

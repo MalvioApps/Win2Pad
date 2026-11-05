@@ -10,6 +10,10 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <EmbeddedResource Include="Calibration\calibration.html" LogicalName="Win2Pad.Core.Calibration.calibration.html" />
+  </ItemGroup>
+
+  <ItemGroup>
     <InternalsVisibleTo Include="Win2Pad.Core.Tests" />
   </ItemGroup>
 

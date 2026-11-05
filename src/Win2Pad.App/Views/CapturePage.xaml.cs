@@ -17,8 +17,15 @@ public partial class CapturePage : Page
         _service.Hosts.CollectionChanged += OnHostsChanged;
         Unloaded += (_, _) => _service.Hosts.CollectionChanged -= OnHostsChanged;
         UpdateEmptyState();
-        Loaded += (_, _) => SwitchGestureToggle.IsChecked = SwitchGestureOptions.Load(AppPaths.SwitchGestureConfig).Enabled;
+        Loaded += (_, _) =>
+        {
+            SwitchGestureToggle.IsChecked = SwitchGestureOptions.Load(AppPaths.SwitchGestureConfig).Enabled;
+            SwapIsoToggle.IsChecked = AppSettings.Instance.SwapIsoKeys;
+        };
     }
+
+    private void OnSwapIsoChanged(object sender, RoutedEventArgs e) =>
+        AppSettings.Instance.SwapIsoKeys = SwapIsoToggle.IsChecked == true;
 
     private void OnSwitchGestureChanged(object sender, RoutedEventArgs e)
     {

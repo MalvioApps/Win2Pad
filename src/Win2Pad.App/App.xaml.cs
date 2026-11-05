@@ -47,6 +47,9 @@ public partial class App : Application
         AppDomain.CurrentDomain.UnhandledException += (_, args) => Report(args.ExceptionObject as Exception);
         base.OnStartup(e);
 
+        // The environment variable still works for testing; the setting is the normal way.
+        if (AppSettings.Instance.SwapIsoKeys) VirtualKeyMap.SwapIsoKeys = true;
+
         Tray = new TrayIconService(ShowMainWindow, ExitApplication, ExtendTrayMenu);
         Indicator = new IndicatorWindow();
         ApplyIndicatorVisibility();

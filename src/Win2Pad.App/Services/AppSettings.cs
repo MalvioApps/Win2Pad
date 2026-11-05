@@ -59,6 +59,22 @@ public sealed class AppSettings : INotifyPropertyChanged
         set { if (Set(ref _checkForUpdates, value)) Save(); }
     }
 
+    private bool _swapIsoKeys;
+    /// <summary>
+    /// Swap the key left of 1 and the extra key left of Z, for tablets that exchange them on
+    /// ISO keyboards. Applied to the key map at once.
+    /// </summary>
+    public bool SwapIsoKeys
+    {
+        get => _swapIsoKeys;
+        set
+        {
+            if (!Set(ref _swapIsoKeys, value)) return;
+            Win2Pad.Core.VirtualKeyMap.SwapIsoKeys = value;
+            Save();
+        }
+    }
+
     private static AppSettings Load()
     {
         try

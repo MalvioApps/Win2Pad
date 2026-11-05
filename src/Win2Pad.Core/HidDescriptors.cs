@@ -30,6 +30,9 @@ public static class HidDescriptors
     /// <summary>bcdHID 1.11, country code 0, flags = RemoteWake | NormallyConnectable.</summary>
     public static readonly byte[] HidInformationValue = [0x11, 0x01, 0x00, 0x03];
 
+    /// <summary>Highest key usage the keyboard report declares; every mapped key must fit.</summary>
+    public const byte MaxKeyUsage = 0xA4;
+
     /// <summary>Composite descriptor: keyboard on report ID 1, mouse on report ID 2.</summary>
     public static readonly byte[] ReportMapValue =
     [
@@ -68,11 +71,14 @@ public static class HidDescriptors
         0x91, 0x01,       //   Output (Const)        - pad to a whole byte
         0x95, 0x06,       //   Report Count (6)
         0x75, 0x08,       //   Report Size (8)
+        // Up to 0xA4, the last key usage before the modifiers: beyond 101 (the boot keyboard's
+        // range) are F13-F24 and the Japanese, Brazilian and Korean keys. 0xA4 does not fit a
+        // signed byte, so the logical maximum takes two.
         0x15, 0x00,       //   Logical Minimum (0)
-        0x25, 0x65,       //   Logical Maximum (101)
+        0x26, 0xA4, 0x00, //   Logical Maximum (164)
         0x05, 0x07,       //   Usage Page (Keyboard/Keypad)
         0x19, 0x00,       //   Usage Minimum (0)
-        0x29, 0x65,       //   Usage Maximum (101)
+        0x29, 0xA4,       //   Usage Maximum (164)
         0x81, 0x00,       //   Input (Data,Array)    - 6 key slots
         0xC0,             // End Collection
 

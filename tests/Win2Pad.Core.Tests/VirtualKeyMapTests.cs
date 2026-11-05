@@ -77,12 +77,37 @@ public class VirtualKeyMapTests
         Assert.False(VirtualKeyMap.TryGetUsage(0x07, out _));
     }
 
-    /// <summary>Anything the map emits must fit the 6-slot key array's logical maximum of 101.</summary>
+    /// <summary>
+    /// Anything the map emits must fit the key array's declared maximum, read from the report
+    /// map itself so the two cannot drift apart. A usage above it is silently ignored by hosts.
+    /// </summary>
     [Fact]
     public void Every_mapped_usage_is_within_the_declared_logical_range()
     {
+        var max = DeclaredKeyMaximum();
+        Assert.Equal(HidDescriptors.MaxKeyUsage, max);
+
         for (var vk = 0; vk <= 0xFF; vk++)
             if (VirtualKeyMap.TryGetUsage(vk, out var usage))
-                Assert.InRange(usage, (byte)0, (byte)101);
+                Assert.InRange(usage, (byte)1, max);
+
+        foreach (var extended in new[] { false, true })
+            for (uint scan = 1; scan <= 0xFF; scan++)
+                if (VirtualKeyMap.TryGetPositionUsage(scan, extended, out var usage))
+                    Assert.InRange(usage, (byte)1, max);
+    }
+
+    /// <summary>
+    /// The Usage Maximum of the keyboard's key array: the last Usage Maximum (0x29) item before
+    /// the keyboard collection ends (the first End Collection, 0xC0).
+    /// </summary>
+    private static byte DeclaredKeyMaximum()
+    {
+        var map = HidDescriptors.ReportMapValue;
+        var end = Array.IndexOf(map, (byte)0xC0);
+        byte max = 0;
+        for (var i = 0; i < end - 1; i++)
+            if (map[i] == 0x29) max = map[i + 1];
+        return max;
     }
 }

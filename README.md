@@ -38,8 +38,8 @@ hardware to buy.
 - **Remembers each iPad** with its own calibration, orientation and pointer speed.
 - **Always know where your input is**: the tray icon, and an optional floating label, change
   colour.
-- **Any keyboard layout.** Keys are sent by position, so Spanish, German, French… work, AltGr
-  included.
+- **Any keyboard layout.** Keys are sent by position, like a real Bluetooth keyboard: QWERTY,
+  QWERTZ, AZERTY, Dvorak, Japanese and Brazilian keyboards all work, AltGr included.
 - **Updates itself** and can start with Windows.
 
 ## Requirements
@@ -138,7 +138,8 @@ drag it anywhere, right-click to hide it.
 | Problem | What to do |
 |---|---|
 | The iPad says it is connected but nothing moves | On the iPad, *Settings → Bluetooth → (your PC) → Forget This Device*, then pair again while Win2Pad is running. |
-| Symbols or letters like `ñ` come out wrong | Set the hardware keyboard layout on the iPad: *Settings → General → Keyboard → Hardware Keyboard*. |
+| Symbols or letters come out wrong | Set the same layout as your keyboard on the iPad: *Settings → General → Keyboard → Hardware Keyboard*. Win2Pad sends keys by position, so any layout works (QWERTY, QWERTZ, AZERTY, Dvorak, JIS...). |
+| The key left of 1 and the key left of Z are swapped | Turn on *Swap the two ISO keys* in **Keyboard and mouse**. |
 | Coming back takes too much pushing, or notifications open | Check that **Screens** matches your desk, then **Fine-tune…** the iPad in **Devices**. |
 | The pointer comes back at the wrong height | **Fine-tune…** the iPad in **Devices**. |
 | It enters the iPad when you don't want it to | Turn off *Move to the iPad through the screen edge* in **Screens** and use the shortcut instead. |

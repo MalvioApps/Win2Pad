@@ -88,6 +88,24 @@
         </StackPanel>
       </ui:CardControl>
 
+      <ui:TextBlock Text="Keyboard layout" FontTypography="Subtitle" Margin="0,20,0,8" />
+
+      <ui:InfoBar Severity="Informational" IsClosable="False" IsOpen="True" Margin="0,0,0,8"
+                  Title="Set your keyboard's layout on the iPad"
+                  Message="Win2Pad sends keys by position, like any Bluetooth keyboard, and the iPad decides which character each one types. On the iPad, choose the same layout as your keyboard in Settings → General → Keyboard → Hardware Keyboard." />
+
+      <ui:CardControl Icon="{ui:SymbolIcon ArrowSwap24}" Margin="0,0,0,8">
+        <ui:CardControl.Header>
+          <StackPanel>
+            <ui:TextBlock Text="Swap the two ISO keys" FontTypography="BodyStrong" />
+            <ui:TextBlock FontTypography="Caption" TextWrapping="Wrap"
+                          Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                          Text="Only if the key left of 1 and the key left of Z come out swapped on the iPad (for example º and &lt; on a Spanish keyboard)." />
+          </StackPanel>
+        </ui:CardControl.Header>
+        <ui:ToggleSwitch x:Name="SwapIsoToggle" Click="OnSwapIsoChanged" />
+      </ui:CardControl>
+
       <ui:TextBlock Text="Shortcuts" FontTypography="Subtitle" Margin="0,20,0,8" />
 
       <ui:CardControl Icon="{ui:SymbolIcon ArrowSwap24}" Margin="0,0,0,8">

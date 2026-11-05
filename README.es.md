@@ -41,8 +41,8 @@ ningún accesorio.
 - **Recuerda cada iPad** con su calibración, orientación y velocidad del puntero.
 - **Sabes siempre dónde está el control**: el icono de la bandeja, y una etiqueta flotante
   opcional, cambian de color.
-- **Cualquier distribución de teclado.** Las teclas se envían por posición, así que funcionan
-  la `ñ`, los acentos y AltGr.
+- **Cualquier distribución de teclado.** Las teclas se envían por posición, como un teclado
+  Bluetooth de verdad: QWERTY, QWERTZ, AZERTY, Dvorak, japonés o brasileño, con la `ñ`, los acentos y AltGr.
 - **Se actualiza solo** y puede arrancar con Windows.
 
 ## Requisitos
@@ -143,7 +143,8 @@ arrástralo donde quieras y ocúltalo con clic derecho.
 | Problema | Qué hacer |
 |---|---|
 | El iPad dice que está conectado pero no se mueve nada | En el iPad, *Ajustes → Bluetooth → (tu PC) → Omitir dispositivo*, y vuelve a emparejar con Win2Pad abierto. |
-| Los símbolos o la `ñ` salen mal | Configura la distribución del teclado físico en el iPad: *Ajustes → General → Teclado → Teclado físico*. |
+| Los símbolos o la `ñ` salen mal | Pon en el iPad la misma distribución que tu teclado: *Ajustes → General → Teclado → Teclado físico*. Win2Pad envía las teclas por posición, así que vale cualquier distribución (QWERTY, QWERTZ, AZERTY, Dvorak, JIS...). |
+| La tecla a la izquierda del 1 y la de la izquierda de la Z salen cambiadas | Activa *Swap the two ISO keys* en **Keyboard and mouse**. |
 | Cuesta mucho volver, o se abren las notificaciones | Comprueba que **Screens** coincide con tu mesa y haz **Fine-tune…** del iPad en **Devices**. |
 | El puntero vuelve a una altura que no es | Haz **Fine-tune…** del iPad en **Devices**. |
 | Entra al iPad cuando no quieres | Desactiva *Move to the iPad through the screen edge* en **Screens** y usa el atajo. |

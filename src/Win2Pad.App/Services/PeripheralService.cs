@@ -1,0 +1,420 @@
+using System.Collections.ObjectModel;
+using System.ComponentModel;
+using System.Runtime.CompilerServices;
+using System.Windows;
+using System.Windows.Threading;
+using Win2Pad.Core;
+
+namespace Win2Pad.App.Services;
+
+/// <summary>
+/// Owns the peripheral for the lifetime of the app so every page observes one shared state.
+/// </summary>
+public sealed class PeripheralService : INotifyPropertyChanged
+{
+    private const int MaxLogLines = 500;
+
+    public static PeripheralService Instance { get; } = new();
+
+    private HidPeripheral? _peripheral;
+    private CancellationTokenSource? _captureCancellation;
+    private readonly DispatcherTimer _poll;
+    private readonly Dispatcher _dispatcher = Application.Current.Dispatcher;
+
+    private PeripheralService()
+    {
+        _poll = new DispatcherTimer(DispatcherPriority.Background, _dispatcher)
+        {
+            Interval = TimeSpan.FromSeconds(1)
+        };
+        _poll.Tick += (_, _) => RefreshCounters();
+    }
+
+    public ObservableCollection<string> Log { get; } = [];
+    public ObservableCollection<HostTarget> Hosts { get; } = [];
+    public ObservableCollection<TargetOption> Targets { get; } = [];
+
+    private bool _applyingSelection;
+    private bool _refreshingHosts;
+    private int _pollTicks;
+    // Null rather than empty: no hosts yet is a real signature the list still has to be built for.
+    private string? _hostSignature;
+
+    private bool _isRunning;
+    public bool IsRunning { get => _isRunning; private set => Set(ref _isRunning, value); }
+
+    private bool _isBusy;
+    public bool IsBusy { get => _isBusy; private set => Set(ref _isBusy, value); }
+
+    private bool _isCapturing;
+    public bool IsCapturing { get => _isCapturing; private set => Set(ref _isCapturing, value); }
+
+    private bool _inputLocal = true;
+
+    /// <summary>
+    /// In resident mode Ctrl+Alt+Q returns input to this PC without ending the session, so
+    /// "capturing" and "actually driving a host" are different states. The UI shows this one.
+    /// </summary>
+    public bool IsRedirecting => IsCapturing && !_inputLocal;
+
+    private bool _requireEncryption = true;
+    public bool RequireEncryption
+    {
+        get => _requireEncryption;
+        set => Set(ref _requireEncryption, value);
+    }
+
+    private int _pointerIntervalMs = 10;
+    public int PointerIntervalMs { get => _pointerIntervalMs; set => Set(ref _pointerIntervalMs, value); }
+
+    private int _linkIntervalMs;
+
+    /// <summary>What the pump actually paces to: the host's negotiated interval or the minimum above.</summary>
+    public int LinkIntervalMs { get => _linkIntervalMs; private set => Set(ref _linkIntervalMs, value); }
+
+    private string _advertisementStatus = "Stopped";
+    public string AdvertisementStatus { get => _advertisementStatus; private set => Set(ref _advertisementStatus, value); }
+
+    private int _keyboardSubscribers;
+    public int KeyboardSubscribers { get => _keyboardSubscribers; private set => Set(ref _keyboardSubscribers, value); }
+
+    private int _mouseSubscribers;
+    public int MouseSubscribers { get => _mouseSubscribers; private set => Set(ref _mouseSubscribers, value); }
+
+    private string _target = "nothing yet";
+    public string Target { get => _target; private set => Set(ref _target, value); }
+
+    private bool _targetCapsLockOn;
+
+    /// <summary>
+    /// Lock-key state of the host receiving input, measured from its LED reports where the host
+    /// sends them and inferred from forwarded keystrokes otherwise.
+    /// </summary>
+    public bool TargetCapsLockOn { get => _targetCapsLockOn; private set => Set(ref _targetCapsLockOn, value); }
+
+    private string? _targetLockWarning;
+
+    /// <summary>Null when nothing about the target's lock keys is worth saying.</summary>
+    public string? TargetLockWarning { get => _targetLockWarning; private set => Set(ref _targetLockWarning, value); }
+
+    public bool HasTargetLockWarning => TargetLockWarning is not null;
+
+    /// <summary>Capture needs a subscribed host, so it stays disabled until one appears.</summary>
+    public bool CanCapture => IsRunning && KeyboardSubscribers > 0;
+
+    public async Task StartAsync()
+    {
+        if (IsRunning || IsBusy) return;
+        IsBusy = true;
+        try
+        {
+            var peripheral = new HidPeripheral(RequireEncryption);
+            peripheral.Log += Append;
+            peripheral.TargetChanged += OnTargetChanged;
+            peripheral.CapsLockChanged += OnCapsLockChanged;
+            await Task.Run(peripheral.StartAsync);
+            _peripheral = peripheral;
+            IsRunning = true;
+            // Without this the peripheral starts in broadcast mode and every report is duplicated
+            // to all subscribed hosts, which is both surprising and slow.
+            peripheral.SelectLocal();
+            _poll.Start();
+            RefreshCounters();
+            await RefreshHostsAsync();
+        }
+        catch (Exception ex)
+        {
+            Append($"startup failed: {ex.Message}");
+            _peripheral = null;
+            IsRunning = false;
+        }
+        finally
+        {
+            IsBusy = false;
+        }
+    }
+
+    public async Task StopAsync()
+    {
+        if (!IsRunning || IsBusy) return;
+        IsBusy = true;
+        try
+        {
+            await StopCaptureAsync();
+            _poll.Stop();
+            if (_peripheral is not null)
+            {
+                _peripheral.TargetChanged -= OnTargetChanged;
+                await _peripheral.DisposeAsync();
+            }
+            _peripheral = null;
+            IsRunning = false;
+            Hosts.Clear();
+            Targets.Clear();
+            _hostSignature = null;
+            AdvertisementStatus = "Stopped";
+            KeyboardSubscribers = MouseSubscribers = 0;
+            Target = "nothing yet";
+            Append("peripheral stopped");
+        }
+        finally
+        {
+            IsBusy = false;
+        }
+    }
+
+    public async Task RefreshHostsAsync()
+    {
+        if (_peripheral is null || _refreshingHosts) return;
+        _refreshingHosts = true;
+        try
+        {
+            await _peripheral.RefreshHostNamesAsync();
+            if (_peripheral is null) return;
+
+            var signature = Signature(_peripheral);
+            if (signature != _hostSignature)
+            {
+                Hosts.Clear();
+                foreach (var host in _peripheral.Hosts()) Hosts.Add(host);
+                _hostSignature = signature;
+                RebuildTargets();
+            }
+
+            SyncTargetState();
+        }
+        finally
+        {
+            _refreshingHosts = false;
+        }
+    }
+
+    public void Select(TargetOption option)
+    {
+        if (_peripheral is null || _applyingSelection) return;
+
+        switch (option.Kind)
+        {
+            case TargetKind.Local:
+                _peripheral.SelectLocal();
+                break;
+            default:
+                // Indexes shift as hosts subscribe and drop, so the device id is the only stable handle.
+                var index = IndexOf(option.DeviceId);
+                if (index < 0)
+                {
+                    Append($"[host] {option.Title} is no longer subscribed");
+                    _ = RefreshHostsAsync();
+                    return;
+                }
+
+                _peripheral.SelectHost(index);
+                break;
+        }
+
+        Target = _peripheral.SelectedHostDisplay;
+        Append($"[host] -> {Target}");
+        SyncSelection();
+    }
+
+    private int IndexOf(string? deviceId)
+    {
+        if (_peripheral is null || deviceId is null) return -1;
+        var hosts = _peripheral.Hosts();
+        for (var i = 0; i < hosts.Count; i++)
+            if (string.Equals(hosts[i].DeviceId, deviceId, StringComparison.OrdinalIgnoreCase)) return i;
+        return -1;
+    }
+
+    // Friendly names resolve after a host subscribes, so they belong in the signature: that is
+    // what lets the list correct itself instead of needing a refresh button.
+    private static string Signature(HidPeripheral peripheral) =>
+        string.Join('|', peripheral.Hosts().Select(h => $"{h.DeviceId}:{h.Name}"));
+
+    private void RebuildTargets()
+    {
+        if (_peripheral is null) return;
+
+        Targets.Clear();
+        var hosts = _peripheral.Hosts();
+        for (var i = 0; i < hosts.Count; i++)
+        {
+            Targets.Add(new TargetOption
+            {
+                Title = hosts[i].Name is { Length: > 0 } name ? name : hosts[i].Address,
+                Detail = hosts[i].Address,
+                Kind = TargetKind.Host,
+                DeviceId = hosts[i].DeviceId
+            });
+        }
+
+        Targets.Add(new TargetOption
+        {
+            Title = "This PC",
+            Detail = "Capture stays armed but keystrokes are passed through locally.",
+            Kind = TargetKind.Local
+        });
+
+        SyncSelection();
+    }
+
+    private void SyncSelection()
+    {
+        if (_peripheral is null) return;
+
+        // Writing IsSelected re-enters through the RadioButton's Checked event, so suppress it.
+        _applyingSelection = true;
+        try
+        {
+            foreach (var option in Targets)
+            {
+                option.IsSelected = option.Kind switch
+                {
+                    TargetKind.Local => _peripheral.IsLocalTarget,
+                    _ => !_peripheral.IsLocalTarget && _peripheral.SelectedHostId == option.DeviceId
+                };
+            }
+        }
+        finally
+        {
+            _applyingSelection = false;
+        }
+    }
+
+    /// <param name="armEarly">
+    /// A tray launch has no window to press the toggle in, so it arms before any host has subscribed.
+    /// </param>
+    public async Task StartCaptureAsync(bool armEarly = false)
+    {
+        if (_peripheral is null || IsCapturing) return;
+        if (!armEarly && !CanCapture) return;
+
+        _captureCancellation = new CancellationTokenSource();
+        IsCapturing = true;
+
+        var peripheral = _peripheral;
+        var token = _captureCancellation.Token;
+
+        // Ctrl+Alt+Q ends the session, so the toggle has to follow the hotkey rather than the click.
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await CaptureSession.RunAsync(peripheral, Append, verbose: false, () => PointerIntervalMs,
+                    stopEndsSession: true, token);
+            }
+            catch (Exception ex)
+            {
+                Append($"capture error: {ex.Message}");
+            }
+            finally
+            {
+                await _dispatcher.InvokeAsync(() =>
+                {
+                    IsCapturing = false;
+                    SyncTargetState();
+                    SyncSelection();
+                });
+            }
+        });
+
+        await Task.CompletedTask;
+    }
+
+    public async Task StopCaptureAsync()
+    {
+        if (!IsCapturing) return;
+        _captureCancellation?.Cancel();
+        // The hook thread unwinds asynchronously; the session's finally clause clears the flag.
+        for (var i = 0; i < 50 && IsCapturing; i++) await Task.Delay(20);
+    }
+
+    /// <summary>
+    /// Ctrl+D+C retargets from the hook thread, so the UI only learns about it here.
+    /// </summary>
+    private void OnTargetChanged()
+    {
+        if (!_dispatcher.CheckAccess())
+        {
+            _dispatcher.BeginInvoke(OnTargetChanged);
+            return;
+        }
+
+        SyncTargetState();
+        SyncSelection();
+    }
+
+    private void SyncTargetState()
+    {
+        if (_peripheral is null) return;
+
+        if (_inputLocal != _peripheral.IsLocalTarget)
+        {
+            _inputLocal = _peripheral.IsLocalTarget;
+            OnPropertyChanged(nameof(IsRedirecting));
+        }
+
+        Target = _peripheral.SelectedHostDisplay;
+        TargetCapsLockOn = _peripheral.TargetCapsLockOn;
+        SetLockWarning(_peripheral.TargetLockWarning);
+    }
+
+    private void SetLockWarning(string? warning)
+    {
+        if (TargetLockWarning == warning) return;
+        TargetLockWarning = warning;
+        OnPropertyChanged(nameof(HasTargetLockWarning));
+    }
+
+    // An LED report can arrive between polls, and a stale lock warning is worse than none.
+    private void OnCapsLockChanged()
+    {
+        if (_peripheral is null) return;
+        TargetCapsLockOn = _peripheral.TargetCapsLockOn;
+        SetLockWarning(_peripheral.TargetLockWarning);
+    }
+
+    private void RefreshCounters()
+    {
+        if (_peripheral is null) return;
+        AdvertisementStatus = _peripheral.AdvertisementStatus.ToString();
+        KeyboardSubscribers = _peripheral.SubscribedKeyboardClients;
+        MouseSubscribers = _peripheral.SubscribedMouseClients;
+        // Ctrl+D+C changes the target without going through the UI, so mirror it back.
+        SyncTargetState();
+        LinkIntervalMs = _peripheral.MouseReportIntervalMs(PointerIntervalMs);
+
+        // Hosts subscribe long after the peripheral starts, so the list cannot be built only once.
+        _pollTicks++;
+        if (Signature(_peripheral) != _hostSignature || _pollTicks % 5 == 0) _ = RefreshHostsAsync();
+        else SyncSelection();
+
+        OnPropertyChanged(nameof(CanCapture));
+    }
+
+    private void Append(string message)
+    {
+        if (!_dispatcher.CheckAccess())
+        {
+            _dispatcher.BeginInvoke(() => Append(message));
+            return;
+        }
+
+        Log.Add($"{DateTime.Now:HH:mm:ss}  {message.TrimEnd()}");
+        while (Log.Count > MaxLogLines) Log.RemoveAt(0);
+    }
+
+    public event PropertyChangedEventHandler? PropertyChanged;
+
+    private void OnPropertyChanged([CallerMemberName] string? name = null) =>
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
+
+    private void Set<T>(ref T field, T value, [CallerMemberName] string? name = null)
+    {
+        if (EqualityComparer<T>.Default.Equals(field, value)) return;
+        field = value;
+        OnPropertyChanged(name);
+        if (name is nameof(IsRunning) or nameof(KeyboardSubscribers)) OnPropertyChanged(nameof(CanCapture));
+        if (name is nameof(IsCapturing)) OnPropertyChanged(nameof(IsRedirecting));
+    }
+}

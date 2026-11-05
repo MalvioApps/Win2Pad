@@ -1,0 +1,38 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    # Windows only: the projects target net8.0-windows and use WinRT projections.
+    runs-on: windows-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          # The SDK pinned in global.json, plus the runtime the projects target.
+          global-json-file: global.json
+          dotnet-version: '8.0.x'
+
+      - name: Build
+        run: dotnet build Win2Pad.sln -c Release
+
+      - name: Test
+        run: >
+          dotnet test Win2Pad.sln --no-build
+          -c Release
+          --logger "trx;LogFileName=results.trx"
+          --results-directory TestResults
+
+      # Anything that needs a Bluetooth radio cannot run here: hosted runners have none.
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: test-results
+          path: TestResults/*.trx

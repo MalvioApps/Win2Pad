@@ -6,8 +6,8 @@ screen and it carries on onto the tablet, like Universal Control does between a 
 Win2Pad is software only. Your PC's own Bluetooth presents itself to the iPad as a standard
 Bluetooth keyboard and mouse, so there is nothing to install on the iPad and no extra hardware.
 
-> Status: early development. The Bluetooth keyboard and mouse work; edge switching and automatic
-> calibration are in progress.
+> Status: early development. The Bluetooth keyboard and mouse, edge switching and automatic
+> calibration work; the device list, screen arrangement editor and installer are in progress.
 
 ## Requirements
 
@@ -25,6 +25,22 @@ Bluetooth keyboard and mouse, so there is nothing to install on the iPad and no 
    active, sends the input as HID reports instead of letting Windows handle it.
 4. Keys are sent by physical position, so the iPad applies its own keyboard layout. Set the
    hardware keyboard layout on the iPad to match your keyboard.
+5. Push the pointer against the screen edge on the iPad's side to carry on onto it, and past the
+   iPad's edge facing the PC to come back at the same height.
+
+## Calibration
+
+A Bluetooth mouse only sends relative movement, so Win2Pad estimates where the iPad pointer is.
+For that it needs the iPad's screen size in mouse counts:
+
+- **Automatic.** When the iPad connects, Win2Pad reads its model over Bluetooth (for example
+  `iPad7,12`), looks up its screen size and calibrates from it. Nothing to do.
+- **Fine-tune with Safari (optional).** Settings → Fine-tune with Safari shows a QR code. Open
+  the page on the iPad and Win2Pad moves the pointer by itself, measuring the screen and the
+  pointer acceleration. Use it if you changed the iPad's pointer tracking speed, or for the most
+  precise switching.
+
+Each iPad is remembered with its calibration for both orientations.
 
 ## Roadmap
 

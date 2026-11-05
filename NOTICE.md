@@ -43,5 +43,10 @@ SOFTWARE.
 
 The edge-switching design (pinning the tablet pointer to a corner, mirroring its edge clamping,
 calibrating the screen size in mouse counts and returning on overshoot) comes from BlueShare.
-When that logic is ported, the ported files will say so in their headers and list their changes,
-as section 4 of the Apache License requires.
+The ported files (`src/Win2Pad.Core/Edge/PointerModel.cs` and its tests) say so in their headers
+and list their changes, as section 4 of the Apache License requires.
+
+## QRCoder
+
+<https://github.com/codebude/QRCoder>, used as a NuGet package to draw the calibration QR code.
+MIT License, Copyright (c) 2013-2018 Raffael Herrmann.

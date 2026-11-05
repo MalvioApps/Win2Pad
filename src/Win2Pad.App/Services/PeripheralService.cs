@@ -4,6 +4,8 @@ using System.Runtime.CompilerServices;
 using System.Windows;
 using System.Windows.Threading;
 using Win2Pad.Core;
+using Win2Pad.Core.Devices;
+using Win2Pad.Core.Edge;
 
 namespace Win2Pad.App.Services;
 
@@ -33,6 +35,74 @@ public sealed class PeripheralService : INotifyPropertyChanged
     public ObservableCollection<string> Log { get; } = [];
     public ObservableCollection<HostTarget> Hosts { get; } = [];
     public ObservableCollection<TargetOption> Targets { get; } = [];
+
+    /// <summary>Remembered tablets: model, calibration and orientation, so a reconnect needs no setup.</summary>
+    public DeviceProfileStore Profiles { get; } = new();
+
+    /// <summary>The running peripheral, for features that drive a host directly (calibration).</summary>
+    public HidPeripheral? Peripheral => _peripheral;
+
+    private readonly HashSet<string> _identified = new(StringComparer.OrdinalIgnoreCase);
+
+    private DeviceProfile? _activeProfile;
+    /// <summary>The profile of the tablet edge switching goes to (the first connected one).</summary>
+    public DeviceProfile? ActiveProfile { get => _activeProfile; private set => Set(ref _activeProfile, value); }
+
+    /// <summary>
+    /// Identifies tablets the first time they connect in this session: a remembered one keeps
+    /// its calibration, a new one is read over Bluetooth and calibrated from its model.
+    /// </summary>
+    private async Task IdentifyHostsAsync(IReadOnlyList<HostTarget> hosts)
+    {
+        foreach (var host in hosts)
+        {
+            if (!_identified.Add(host.DeviceId)) continue;
+
+            var existing = Profiles.Get(host.DeviceId);
+            if (existing is { Source: not CalibrationSource.None })
+            {
+                Profiles.Save(existing with { LastSeen = DateTimeOffset.Now, Name = host.Name ?? existing.Name });
+                Append($"[device] {host.Display}: remembered {existing.ModelName ?? existing.ModelIdentifier ?? "tablet"} ({existing.Source.ToString().ToLowerInvariant()} calibration)");
+                continue;
+            }
+
+            TabletInfo? info = null;
+            try
+            {
+                info = await Task.Run(() => TabletIdentity.ReadAsync(host.DeviceId));
+            }
+            catch (Exception ex)
+            {
+                Append($"[device] could not read the model of {host.Display}: {ex.Message}");
+            }
+
+            var profile = DeviceProfile.FromTablet(host.DeviceId, info) with
+            {
+                Name = host.Name ?? info?.Name,
+                Landscape = existing?.Landscape ?? true
+            };
+            Profiles.Save(profile);
+            Append(profile.ModelName is { } model
+                ? $"[device] {host.Display}: {model} ({profile.ModelIdentifier}), calibrated from its screen size"
+                : $"[device] {host.Display}: model '{info?.ModelIdentifier ?? "unknown"}' not recognised - calibrate it with Safari in Settings");
+        }
+
+        ApplyActiveProfile();
+    }
+
+    /// <summary>Puts the active tablet's calibration into the edge settings, which a running session picks up.</summary>
+    public void ApplyActiveProfile()
+    {
+        var host = Hosts.FirstOrDefault();
+        var profile = host is null ? null : Profiles.Get(host.DeviceId);
+        ActiveProfile = profile;
+        if (profile?.Active is null) return;
+
+        var current = EdgeOptions.Load();
+        var updated = profile.ApplyTo(current);
+        if (updated != current && !updated.TrySave(null, out var error))
+            Append($"[device] could not save the calibration: {error}");
+    }
 
     private bool _applyingSelection;
     private bool _refreshingHosts;
@@ -124,7 +194,7 @@ public sealed class PeripheralService : INotifyPropertyChanged
 
             // Edge switching watches the pointer all the time, so the hooks have to be in place
             // from the start rather than waiting for the user to arm capture by hand.
-            if (Win2Pad.Core.Edge.EdgeOptions.Load().Enabled) await StartCaptureAsync(armEarly: true);
+            if (EdgeOptions.Load().Enabled) await StartCaptureAsync(armEarly: true);
         }
         catch (Exception ex)
         {
@@ -183,6 +253,7 @@ public sealed class PeripheralService : INotifyPropertyChanged
                 foreach (var host in _peripheral.Hosts()) Hosts.Add(host);
                 _hostSignature = signature;
                 RebuildTargets();
+                _ = IdentifyHostsAsync(Hosts.ToList());
             }
 
             SyncTargetState();

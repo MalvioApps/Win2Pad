@@ -86,16 +86,18 @@
     <ui:CardControl Icon="{ui:SymbolIcon Ruler24}" Margin="0,0,0,8">
       <ui:CardControl.Header>
         <StackPanel>
-          <ui:TextBlock Text="Calibration" FontTypography="BodyStrong" />
-          <ui:TextBlock x:Name="CalibrationHint" FontTypography="Caption" TextWrapping="Wrap"
+          <ui:TextBlock x:Name="DeviceTitle" Text="No tablet connected" FontTypography="BodyStrong" />
+          <ui:TextBlock x:Name="DeviceDetail" FontTypography="Caption" TextWrapping="Wrap"
                         Foreground="{DynamicResource TextFillColorSecondaryBrush}"
-                        Text="The tablet screen size in mouse counts at slow speed. Automatic calibration is coming; until then, enter it by hand." />
+                        Text="Connect the iPad over Bluetooth: Win2Pad reads its model and calibrates itself." />
         </StackPanel>
       </ui:CardControl.Header>
       <StackPanel Orientation="Horizontal">
-        <ui:TextBox x:Name="CalibrationWidthBox" Width="90" PlaceholderText="width" LostFocus="OnEdgeChanged" />
-        <TextBlock Text="×" VerticalAlignment="Center" Margin="8,0" Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
-        <ui:TextBox x:Name="CalibrationHeightBox" Width="90" PlaceholderText="height" LostFocus="OnEdgeChanged" />
+        <ComboBox x:Name="OrientationCombo" MinWidth="130" Margin="0,0,8,0" SelectionChanged="OnOrientationChanged">
+          <ComboBoxItem Content="Landscape" Tag="landscape" />
+          <ComboBoxItem Content="Portrait" Tag="portrait" />
+        </ComboBox>
+        <ui:Button Content="Fine-tune with Safari…" Click="OnFineTune" />
       </StackPanel>
     </ui:CardControl>
 

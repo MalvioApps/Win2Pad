@@ -1,0 +1,52 @@
+<ui:FluentWindow x:Class="Win2Pad.App.Views.CalibrationWindow"
+                 xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                 xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                 xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+                 Title="Fine-tune with Safari"
+                 Width="760" Height="520" MinWidth="640" MinHeight="460"
+                 WindowStartupLocation="CenterOwner"
+                 ExtendsContentIntoTitleBar="True"
+                 WindowBackdropType="Mica">
+  <Grid>
+    <Grid.RowDefinitions>
+      <RowDefinition Height="Auto" />
+      <RowDefinition Height="*" />
+    </Grid.RowDefinitions>
+
+    <ui:TitleBar Grid.Row="0" Title="Fine-tune with Safari" />
+
+    <Grid Grid.Row="1" Margin="24,8,24,24">
+      <Grid.ColumnDefinitions>
+        <ColumnDefinition Width="Auto" />
+        <ColumnDefinition Width="*" />
+      </Grid.ColumnDefinitions>
+
+      <StackPanel Grid.Column="0" Margin="0,0,24,0" Width="240">
+        <Border Background="White" CornerRadius="12" Padding="10">
+          <Image x:Name="QrImage" Width="220" Height="220" RenderOptions.BitmapScalingMode="NearestNeighbor" />
+        </Border>
+        <ui:TextBox x:Name="UrlBox" IsReadOnly="True" Margin="0,10,0,0" FontSize="12" />
+      </StackPanel>
+
+      <StackPanel Grid.Column="1">
+        <ui:TextBlock Text="Measure this iPad precisely" FontTypography="Subtitle" Margin="0,0,0,8" />
+        <ui:TextBlock TextWrapping="Wrap" Foreground="{DynamicResource TextFillColorSecondaryBrush}" Margin="0,0,0,16"
+                      Text="Win2Pad already calibrated this iPad from its model. Fine-tune it here if you changed the pointer speed on the iPad, or for the most precise switching. It also measures the iPad's pointer acceleration." />
+
+        <ui:TextBlock TextWrapping="Wrap" Margin="0,0,0,4" Text="1. On the iPad, scan the code with the Camera app and open the page in Safari. Both must be on the same Wi-Fi." />
+        <ui:TextBlock TextWrapping="Wrap" Margin="0,0,0,4" Text="2. If Windows asks about network access, allow it on private networks." />
+        <ui:TextBlock TextWrapping="Wrap" Margin="0,0,0,16" Text="3. Leave the page in front, don't touch the iPad, and press Start. It takes about 20 seconds." />
+
+        <ui:InfoBar x:Name="StatusBar" IsOpen="True" IsClosable="False" Severity="Informational"
+                    Title="Waiting for the iPad" Message="Open the page on the iPad." Margin="0,0,0,12" />
+        <ProgressBar x:Name="Progress" Height="6" Minimum="0" Maximum="1" Margin="0,0,0,16" />
+
+        <StackPanel Orientation="Horizontal">
+          <ui:Button x:Name="StartButton" Content="Start" Appearance="Primary" IsEnabled="False"
+                     Click="OnStart" Margin="0,0,8,0" MinWidth="100" />
+          <ui:Button Content="Close" Click="OnClose" MinWidth="100" />
+        </StackPanel>
+      </StackPanel>
+    </Grid>
+  </Grid>
+</ui:FluentWindow>

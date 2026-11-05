@@ -35,7 +35,19 @@ public sealed class EdgeSwitcher
     /// <summary>The tablet pointer is being tracked, so pushing back out can return.</summary>
     public bool IsTracking => _model is not null;
 
-    public bool CanSwitch => Options.Enabled && Options.Calibration.IsValid;
+    public bool CanSwitch => Options.Enabled && Options.Calibration.IsValid && !Suspended;
+
+    private static volatile bool _suspended;
+
+    /// <summary>
+    /// Set while calibrating: the calibration drives the tablet pointer itself, and the user's
+    /// own mouse must not carry input over to the tablet in the middle of it.
+    /// </summary>
+    public static bool Suspended
+    {
+        get => _suspended;
+        set => _suspended = value;
+    }
 
     /// <summary>
     /// Raw motion while input is local. Returns an entry when the user pushed far enough against

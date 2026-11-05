@@ -1,0 +1,154 @@
+using System.Text.Json;
+using System.Text.Json.Serialization;
+using Win2Pad.Core.Calibration;
+using Win2Pad.Core.Edge;
+
+namespace Win2Pad.Core.Devices;
+
+/// <summary>Where a device's calibration came from, from least to most precise.</summary>
+public enum CalibrationSource { None, Model, Manual, Safari }
+
+/// <summary>Screen size in HID counts for one orientation, and the acceleration headroom to assume.</summary>
+public sealed record OrientationCalibration(int Width, int Height, double AwayFactor)
+{
+    [JsonIgnore]
+    public PointerCalibration Pointer => new(Width, Height);
+}
+
+/// <summary>Everything remembered about one tablet, keyed by its Bluetooth device id.</summary>
+public sealed record DeviceProfile
+{
+    public required string DeviceId { get; init; }
+    public string? Name { get; init; }
+    public string? ModelIdentifier { get; init; }
+    public string? ModelName { get; init; }
+    public CalibrationSource Source { get; init; }
+
+    /// <summary>
+    /// The orientation the tablet is used in. Bluetooth cannot tell, so the user sets it; both
+    /// calibrations are kept so switching is instant.
+    /// </summary>
+    public bool Landscape { get; init; } = true;
+
+    public OrientationCalibration? LandscapeCalibration { get; init; }
+    public OrientationCalibration? PortraitCalibration { get; init; }
+    public DateTimeOffset LastSeen { get; init; }
+
+    [JsonIgnore]
+    public OrientationCalibration? Active => Landscape ? LandscapeCalibration : PortraitCalibration;
+
+    /// <summary>A profile from what the tablet reported over Bluetooth: calibrated from the model table when it is known.</summary>
+    public static DeviceProfile FromTablet(string deviceId, TabletInfo? info, double awayFactor = 2.4)
+    {
+        var model = TabletModels.Find(info?.ModelIdentifier);
+        return new DeviceProfile
+        {
+            DeviceId = deviceId,
+            Name = info?.Name,
+            ModelIdentifier = info?.ModelIdentifier,
+            ModelName = model?.Name,
+            Source = model is null ? CalibrationSource.None : CalibrationSource.Model,
+            LandscapeCalibration = model is null ? null : From(model.Calibration(landscape: true), awayFactor),
+            PortraitCalibration = model is null ? null : From(model.Calibration(landscape: false), awayFactor),
+            LastSeen = DateTimeOffset.Now
+        };
+    }
+
+    /// <summary>
+    /// Takes a Safari measurement for the orientation it was made in. The other orientation is the
+    /// same screen turned round, so its extents swap.
+    /// </summary>
+    public DeviceProfile WithMeasurement(CalibrationResult result)
+    {
+        var measured = new OrientationCalibration(result.Width, result.Height, result.AwayFactor);
+        var turned = new OrientationCalibration(result.Height, result.Width, result.AwayFactor);
+        return this with
+        {
+            Source = CalibrationSource.Safari,
+            Landscape = result.Landscape,
+            LandscapeCalibration = result.Landscape ? measured : turned,
+            PortraitCalibration = result.Landscape ? turned : measured
+        };
+    }
+
+    /// <summary>Copies the active calibration into the edge settings; unchanged when there is none.</summary>
+    public EdgeOptions ApplyTo(EdgeOptions options) => Active is { } c
+        ? options with { CalibrationWidth = c.Width, CalibrationHeight = c.Height, AwayFactor = c.AwayFactor }
+        : options;
+
+    private static OrientationCalibration From(PointerCalibration c, double away) => new(c.Width, c.Height, away);
+}
+
+/// <summary>The remembered tablets, stored as JSON next to the other settings.</summary>
+public sealed class DeviceProfileStore
+{
+    private static readonly JsonSerializerOptions Json = new()
+    {
+        WriteIndented = true,
+        Converters = { new JsonStringEnumConverter() }
+    };
+
+    private readonly string _path;
+    private readonly object _lock = new();
+    private Dictionary<string, DeviceProfile> _profiles;
+
+    public DeviceProfileStore(string? path = null)
+    {
+        _path = path ?? AppPaths.InRoot("devices.json");
+        _profiles = Read(_path);
+    }
+
+    public event Action? Changed;
+
+    public IReadOnlyList<DeviceProfile> All
+    {
+        get { lock (_lock) return _profiles.Values.OrderByDescending(p => p.LastSeen).ToList(); }
+    }
+
+    public DeviceProfile? Get(string deviceId)
+    {
+        lock (_lock) return _profiles.GetValueOrDefault(deviceId);
+    }
+
+    public void Save(DeviceProfile profile)
+    {
+        lock (_lock)
+        {
+            _profiles[profile.DeviceId] = profile;
+            Write();
+        }
+        Changed?.Invoke();
+    }
+
+    public bool Remove(string deviceId)
+    {
+        bool removed;
+        lock (_lock)
+        {
+            removed = _profiles.Remove(deviceId);
+            if (removed) Write();
+        }
+        if (removed) Changed?.Invoke();
+        return removed;
+    }
+
+    private void Write()
+    {
+        Directory.CreateDirectory(Path.GetDirectoryName(_path)!);
+        var temp = _path + ".tmp";
+        File.WriteAllText(temp, JsonSerializer.Serialize(_profiles.Values.ToList(), Json));
+        File.Move(temp, _path, overwrite: true);
+    }
+
+    private static Dictionary<string, DeviceProfile> Read(string path)
+    {
+        try
+        {
+            if (File.Exists(path)
+                && JsonSerializer.Deserialize<List<DeviceProfile>>(File.ReadAllText(path), Json) is { } list)
+                return list.ToDictionary(p => p.DeviceId, StringComparer.OrdinalIgnoreCase);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException) { }
+        return new(StringComparer.OrdinalIgnoreCase);
+    }
+}

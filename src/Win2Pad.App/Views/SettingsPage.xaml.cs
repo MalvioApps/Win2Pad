@@ -2,6 +2,7 @@ using System.Windows;
 using System.Windows.Controls;
 using Win2Pad.App.Services;
 using Win2Pad.Core;
+using Win2Pad.Core.Devices;
 using Win2Pad.Core.Edge;
 
 namespace Win2Pad.App.Views;
@@ -29,6 +30,9 @@ public partial class SettingsPage : Page
 
     private void OnLoaded(object sender, RoutedEventArgs e)
     {
+        PeripheralService.Instance.PropertyChanged -= OnServiceChanged;
+        PeripheralService.Instance.PropertyChanged += OnServiceChanged;
+        RefreshDevice();
         if (_gestureWatcher is not null) return;
         _gestureWatcher = new SwitchGestureWatcher(AppPaths.SwitchGestureConfig);
         _gestureWatcher.Changed += OnGestureSettingsChanged;
@@ -37,6 +41,7 @@ public partial class SettingsPage : Page
 
     private void OnUnloaded(object sender, RoutedEventArgs e)
     {
+        PeripheralService.Instance.PropertyChanged -= OnServiceChanged;
         var watcher = _gestureWatcher;
         _gestureWatcher = null;
         if (watcher is null) return;
@@ -78,8 +83,6 @@ public partial class SettingsPage : Page
         EdgeToggle.IsChecked = options.Enabled;
         SideCombo.SelectedItem = SideCombo.Items.OfType<ComboBoxItem>()
             .First(item => (string)item.Tag == options.Side.ToString());
-        CalibrationWidthBox.Text = options.CalibrationWidth > 0 ? options.CalibrationWidth.ToString() : "";
-        CalibrationHeightBox.Text = options.CalibrationHeight > 0 ? options.CalibrationHeight.ToString() : "";
         _loadingEdge = false;
     }
 
@@ -93,13 +96,7 @@ public partial class SettingsPage : Page
         var side = SideCombo.SelectedItem is ComboBoxItem { Tag: string tag } && Enum.TryParse<TabletSide>(tag, out var parsed)
             ? parsed
             : current.Side;
-        var updated = current with
-        {
-            Enabled = EdgeToggle.IsChecked == true,
-            Side = side,
-            CalibrationWidth = ParseCounts(CalibrationWidthBox.Text, current.CalibrationWidth),
-            CalibrationHeight = ParseCounts(CalibrationHeightBox.Text, current.CalibrationHeight)
-        };
+        var updated = current with { Enabled = EdgeToggle.IsChecked == true, Side = side };
         if (updated == current) return;
 
         if (!updated.TrySave(null, out var error))
@@ -114,10 +111,53 @@ public partial class SettingsPage : Page
             _ = PeripheralService.Instance.StartCaptureAsync(armEarly: true);
     }
 
-    private static int ParseCounts(string text, int fallback) =>
-        string.IsNullOrWhiteSpace(text) ? 0
-        : int.TryParse(text.Trim(), out var value) && value is > 0 and <= 100_000 ? value
-        : fallback;
+    private void OnServiceChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName == nameof(PeripheralService.ActiveProfile)) Dispatcher.BeginInvoke(RefreshDevice);
+    }
+
+    /// <summary>Shows which tablet edge switching goes to and how it was calibrated.</summary>
+    private void RefreshDevice()
+    {
+        var profile = PeripheralService.Instance.ActiveProfile;
+        _loadingEdge = true;
+        OrientationCombo.IsEnabled = profile is not null;
+        OrientationCombo.SelectedIndex = profile is { Landscape: false } ? 1 : 0;
+        _loadingEdge = false;
+
+        if (profile is null)
+        {
+            DeviceTitle.Text = "No tablet connected";
+            DeviceDetail.Text = "Connect the iPad over Bluetooth: Win2Pad reads its model and calibrates itself.";
+            return;
+        }
+
+        DeviceTitle.Text = profile.ModelName ?? profile.Name ?? "Unknown tablet";
+        var source = profile.Source switch
+        {
+            CalibrationSource.Safari => "fine-tuned with Safari",
+            CalibrationSource.Model => "calibrated from its model",
+            CalibrationSource.Manual => "calibrated by hand",
+            _ => "model not recognised: fine-tune it with Safari to enable edge switching"
+        };
+        var size = profile.Active is { } c ? $" · {c.Width}×{c.Height} counts" : "";
+        DeviceDetail.Text = $"{profile.ModelIdentifier ?? "no model reported"} · {source}{size}";
+    }
+
+    /// <summary>Bluetooth cannot tell how the iPad is held, so the user says; both calibrations are kept.</summary>
+    private void OnOrientationChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (_loadingEdge || !IsInitialized) return;
+        var service = PeripheralService.Instance;
+        if (service.ActiveProfile is not { } profile) return;
+        var landscape = OrientationCombo.SelectedIndex == 0;
+        if (profile.Landscape == landscape) return;
+        service.Profiles.Save(profile with { Landscape = landscape });
+        service.ApplyActiveProfile();
+    }
+
+    private void OnFineTune(object sender, RoutedEventArgs e) =>
+        new CalibrationWindow { Owner = Window.GetWindow(this) }.ShowDialog();
 
     private void OnExit(object sender, RoutedEventArgs e) => App.Current.ExitApplication();
 }

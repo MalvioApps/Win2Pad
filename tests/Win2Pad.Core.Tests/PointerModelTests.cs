@@ -116,6 +116,19 @@ public sealed class PointerModelTests
         Assert.Equal(((double)x, (double)y), (model.X, model.Y));
     }
 
+    [Theory]
+    [InlineData(TabletSide.Right, -Pin, Pin, 40, -250, 40, 750)]    // lower half: from the bottom corner
+    [InlineData(TabletSide.Left, Pin, Pin, -40, -250, 1960, 750)]
+    [InlineData(TabletSide.Top, Pin, Pin, -500, -20, 1500, 980)]    // right half: from the right corner
+    [InlineData(TabletSide.Bottom, Pin, -Pin, -500, 20, 1500, 20)]
+    public void Entry_past_the_middle_pins_the_nearer_corner(TabletSide side, int pinX, int pinY,
+        int alongX, int alongY, int x, int y)
+    {
+        var model = new PointerModel(Cal, side);
+        Assert.Equal([new PinMove(pinX, pinY, Settle), new PinMove(alongX, alongY, Settle)], model.Enter(0.75));
+        Assert.Equal(((double)x, (double)y), (model.X, model.Y));
+    }
+
     [Fact]
     public void Return_for_a_tablet_on_the_left()
     {

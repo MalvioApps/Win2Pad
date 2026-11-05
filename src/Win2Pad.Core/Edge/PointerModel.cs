@@ -84,51 +84,38 @@ public sealed class PointerModel
 
     /// <summary>
     /// Places the pointer just inside the edge facing the PC, at <paramref name="fraction"/> along it.
-    /// Returns the moves that do it on the tablet: pin into a corner, then move along the edge.
-    /// Each move is followed by a pause so neither is accelerated.
+    /// Returns the moves that do it on the tablet: pin into the corner of that edge nearest to the
+    /// target, then move along the edge. Each move is followed by a pause so neither is accelerated.
+    /// The nearest corner keeps the visible travel along the edge to half the screen at most.
     /// </summary>
     public IReadOnlyList<PinMove> Enter(double fraction)
     {
         fraction = Math.Clamp(fraction, 0, 1);
         int w = Calibration.Width, h = Calibration.Height;
+        var fromStart = fraction <= 0.5; // pin to the top (or left) corner rather than the other one
         PinMove pin, along;
         double x, y;
         switch (Side)
         {
             case TabletSide.Top: // tablet above the PC: enter through its bottom edge
-            {
-                var inset = Math.Max(1, (int)Math.Round(EntryInset * h));
-                x = Math.Round(fraction * w);
-                y = h - inset;
-                pin = new(-PinCounts, PinCounts, SettleMs);
-                along = new((int)x, -inset, SettleMs);
-                break;
-            }
             case TabletSide.Bottom:
             {
+                var bottom = Side == TabletSide.Top;
                 var inset = Math.Max(1, (int)Math.Round(EntryInset * h));
                 x = Math.Round(fraction * w);
-                y = inset;
-                pin = new(-PinCounts, -PinCounts, SettleMs);
-                along = new((int)x, inset, SettleMs);
+                y = bottom ? h - inset : inset;
+                pin = new(fromStart ? -PinCounts : PinCounts, bottom ? PinCounts : -PinCounts, SettleMs);
+                along = new(fromStart ? (int)x : (int)x - w, bottom ? -inset : inset, SettleMs);
                 break;
             }
-            case TabletSide.Left: // tablet left of the PC: enter through its right edge
+            default: // tablet beside the PC: enter through its right edge (Left) or left edge (Right)
             {
+                var right = Side == TabletSide.Left;
                 var inset = Math.Max(1, (int)Math.Round(EntryInset * w));
-                x = w - inset;
+                x = right ? w - inset : inset;
                 y = Math.Round(fraction * h);
-                pin = new(PinCounts, -PinCounts, SettleMs);
-                along = new(-inset, (int)y, SettleMs);
-                break;
-            }
-            default:
-            {
-                var inset = Math.Max(1, (int)Math.Round(EntryInset * w));
-                x = inset;
-                y = Math.Round(fraction * h);
-                pin = new(-PinCounts, -PinCounts, SettleMs);
-                along = new(inset, (int)y, SettleMs);
+                pin = new(right ? PinCounts : -PinCounts, fromStart ? -PinCounts : PinCounts, SettleMs);
+                along = new(right ? -inset : inset, fromStart ? (int)y : (int)y - h, SettleMs);
                 break;
             }
         }

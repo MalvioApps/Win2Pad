@@ -121,6 +121,10 @@ public sealed class PeripheralService : INotifyPropertyChanged
             _poll.Start();
             RefreshCounters();
             await RefreshHostsAsync();
+
+            // Edge switching watches the pointer all the time, so the hooks have to be in place
+            // from the start rather than waiting for the user to arm capture by hand.
+            if (Win2Pad.Core.Edge.EdgeOptions.Load().Enabled) await StartCaptureAsync(armEarly: true);
         }
         catch (Exception ex)
         {

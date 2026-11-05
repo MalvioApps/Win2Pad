@@ -53,6 +53,14 @@ public sealed class InputCapture : IDisposable
     private bool _haveLocalPoint;
     private Func<int> _now = () => Environment.TickCount;
 
+    /// <summary>
+    /// Physical mouse motion while input stays local, in raw counts (before Windows pointer
+    /// ballistics and before the pointer is clamped to the screen), plus whether a button is
+    /// held. Raw input keeps reporting motion when the pointer is already pinned against an
+    /// edge, which the low-level hook does not: that is what makes an edge push measurable.
+    /// </summary>
+    public event Action<int, int, bool>? LocalPointerMoved;
+
     public event Action<KeyModifiers, byte[]>? KeyboardReport;
     public event Action<MouseButtons, int, int, int>? MouseReport;
     public event Action? SwitchHostRequested;
@@ -168,12 +176,17 @@ public sealed class InputCapture : IDisposable
         _winEventHook = SetWinEventHook(EVENT_SYSTEM_FOREGROUND, EVENT_SYSTEM_FOREGROUND, IntPtr.Zero,
             _winEventProc, 0, 0, WINEVENT_OUTOFCONTEXT | WINEVENT_SKIPOWNPROCESS);
 
+        var rawWindow = RegisterRawMouse();
+
         int result;
         while ((result = GetMessage(out var message, IntPtr.Zero, 0, 0)) > 0)
         {
+            if (message.message == WM_INPUT) HandleRawInput(message.lParam);
             TranslateMessage(ref message);
             DispatchMessage(ref message);
         }
+
+        if (rawWindow != IntPtr.Zero) DestroyWindow(rawWindow);
 
         if (Verbose)
             Log?.Invoke($"  [hook] message loop exited ({result}), keyboard events={_keyboardEvents}, mouse events={_mouseEvents}, rearms={_rearms}");
@@ -474,7 +487,9 @@ public sealed class InputCapture : IDisposable
                 {
                     if (Verbose && _mouseEvents <= 10) Log?.Invoke($"  [mouse] move {dx},{dy}");
                     MouseReport?.Invoke(_buttons, dx, dy, 0);
-                    SetCursorPos(_centerX, _centerY);
+                    // A listener may have just handed input back to Windows and placed the
+                    // pointer where it re-enters; re-centring would throw it to the middle.
+                    if (!_passThrough) SetCursorPos(_centerX, _centerY);
                     TrackGesture(dx, dy);
                 }
                 break;
@@ -486,6 +501,46 @@ public sealed class InputCapture : IDisposable
         }
 
         return 1; // swallow locally
+    }
+
+    /// <summary>
+    /// Raw mouse input goes to a message-only window on this thread. INPUTSINK keeps it coming
+    /// while another application has the focus.
+    /// </summary>
+    private IntPtr RegisterRawMouse()
+    {
+        var window = CreateWindowEx(0, "Message", null, 0, 0, 0, 0, 0, HWND_MESSAGE, IntPtr.Zero, IntPtr.Zero, IntPtr.Zero);
+        if (window == IntPtr.Zero)
+        {
+            Log?.Invoke($"  [raw] could not create the raw input window (err {Marshal.GetLastWin32Error()}); edge switching is off");
+            return IntPtr.Zero;
+        }
+
+        var device = new RAWINPUTDEVICE { usUsagePage = 0x01, usUsage = 0x02, dwFlags = RIDEV_INPUTSINK, hwndTarget = window };
+        if (!RegisterRawInputDevices([device], 1, (uint)Marshal.SizeOf<RAWINPUTDEVICE>()))
+            Log?.Invoke($"  [raw] could not register for raw mouse input (err {Marshal.GetLastWin32Error()}); edge switching is off");
+        return window;
+    }
+
+    private unsafe void HandleRawInput(IntPtr handle)
+    {
+        if (!_passThrough || LocalPointerMoved is null) return;
+
+        var headerSize = (uint)Marshal.SizeOf<RAWINPUTHEADER>();
+        var buffer = stackalloc byte[64];
+        var size = 64u;
+        if (GetRawInputData(handle, RID_INPUT, (IntPtr)buffer, ref size, headerSize) == unchecked((uint)-1)) return;
+
+        var header = *(RAWINPUTHEADER*)buffer;
+        // hDevice is null for input injected by software (remote desktop, automation, our own moves).
+        if (header.dwType != RIM_TYPEMOUSE || header.hDevice == IntPtr.Zero) return;
+
+        var mouse = buffer + headerSize;
+        var flags = *(ushort*)mouse;
+        if ((flags & MOUSE_MOVE_ABSOLUTE) != 0) return; // pens and remote sessions report positions
+        var dx = *(int*)(mouse + 12);
+        var dy = *(int*)(mouse + 16);
+        if (dx != 0 || dy != 0) LocalPointerMoved?.Invoke(dx, dy, _localButtons != MouseButtons.None);
     }
 
     internal static bool IsAltGrPhantomControl(int virtualKey, uint scanCode) =>
@@ -545,6 +600,41 @@ public sealed class InputCapture : IDisposable
         public uint time;
         public POINT pt;
     }
+
+    private const int WM_INPUT = 0x00FF;
+    private const uint RIDEV_INPUTSINK = 0x00000100;
+    private const uint RID_INPUT = 0x10000003;
+    private const uint RIM_TYPEMOUSE = 0;
+    private const ushort MOUSE_MOVE_ABSOLUTE = 0x01;
+    private static readonly IntPtr HWND_MESSAGE = -3;
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct RAWINPUTDEVICE
+    {
+        public ushort usUsagePage, usUsage;
+        public uint dwFlags;
+        public IntPtr hwndTarget;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct RAWINPUTHEADER
+    {
+        public uint dwType, dwSize;
+        public IntPtr hDevice, wParam;
+    }
+
+    [DllImport("user32.dll", SetLastError = true, CharSet = CharSet.Unicode)]
+    private static extern IntPtr CreateWindowEx(int exStyle, string className, string? windowName, int style,
+        int x, int y, int width, int height, IntPtr parent, IntPtr menu, IntPtr instance, IntPtr param);
+
+    [DllImport("user32.dll")]
+    private static extern bool DestroyWindow(IntPtr hWnd);
+
+    [DllImport("user32.dll", SetLastError = true)]
+    private static extern bool RegisterRawInputDevices(RAWINPUTDEVICE[] devices, uint count, uint size);
+
+    [DllImport("user32.dll")]
+    private static extern uint GetRawInputData(IntPtr hRawInput, uint command, IntPtr data, ref uint size, uint headerSize);
 
     [DllImport("user32.dll", SetLastError = true)]
     private static extern IntPtr SetWindowsHookEx(int idHook, LowLevelProc lpfn, IntPtr hMod, uint dwThreadId);

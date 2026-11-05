@@ -52,6 +52,55 @@
       <ui:ToggleSwitch IsChecked="{Binding CloseToTray, Mode=TwoWay}" />
     </ui:CardControl>
 
+    <ui:TextBlock Text="Edge switching" FontTypography="BodyStrong" Margin="0,12,0,8" />
+
+    <ui:CardControl Icon="{ui:SymbolIcon ArrowSwap24}" Margin="0,0,0,8">
+      <ui:CardControl.Header>
+        <StackPanel>
+          <ui:TextBlock Text="Move to the tablet through the screen edge" FontTypography="BodyStrong" />
+          <ui:TextBlock FontTypography="Caption" TextWrapping="Wrap"
+                        Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                        Text="Push the pointer against the edge on the tablet's side to carry on onto it; push past the tablet's edge facing the PC to come back." />
+        </StackPanel>
+      </ui:CardControl.Header>
+      <ui:ToggleSwitch x:Name="EdgeToggle" Click="OnEdgeChanged" />
+    </ui:CardControl>
+
+    <ui:CardControl Icon="{ui:SymbolIcon Tablet24}" Margin="0,0,0,8">
+      <ui:CardControl.Header>
+        <StackPanel>
+          <ui:TextBlock Text="Tablet position" FontTypography="BodyStrong" />
+          <ui:TextBlock FontTypography="Caption" TextWrapping="Wrap"
+                        Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                        Text="Which side of your screens the tablet is on. Any monitor edge on that side with no other monitor beyond it leads to the tablet." />
+        </StackPanel>
+      </ui:CardControl.Header>
+      <ComboBox x:Name="SideCombo" MinWidth="140" SelectionChanged="OnEdgeChanged">
+        <ComboBoxItem Content="Right" Tag="Right" />
+        <ComboBoxItem Content="Left" Tag="Left" />
+        <ComboBoxItem Content="Above" Tag="Top" />
+        <ComboBoxItem Content="Below" Tag="Bottom" />
+      </ComboBox>
+    </ui:CardControl>
+
+    <ui:CardControl Icon="{ui:SymbolIcon Ruler24}" Margin="0,0,0,8">
+      <ui:CardControl.Header>
+        <StackPanel>
+          <ui:TextBlock Text="Calibration" FontTypography="BodyStrong" />
+          <ui:TextBlock x:Name="CalibrationHint" FontTypography="Caption" TextWrapping="Wrap"
+                        Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                        Text="The tablet screen size in mouse counts at slow speed. Automatic calibration is coming; until then, enter it by hand." />
+        </StackPanel>
+      </ui:CardControl.Header>
+      <StackPanel Orientation="Horizontal">
+        <ui:TextBox x:Name="CalibrationWidthBox" Width="90" PlaceholderText="width" LostFocus="OnEdgeChanged" />
+        <TextBlock Text="×" VerticalAlignment="Center" Margin="8,0" Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+        <ui:TextBox x:Name="CalibrationHeightBox" Width="90" PlaceholderText="height" LostFocus="OnEdgeChanged" />
+      </StackPanel>
+    </ui:CardControl>
+
+    <ui:TextBlock Text="Other" FontTypography="BodyStrong" Margin="0,12,0,8" />
+
     <ui:CardControl Icon="{ui:SymbolIcon Cursor24}" Margin="0,0,0,8">
       <ui:CardControl.Header>
         <StackPanel>

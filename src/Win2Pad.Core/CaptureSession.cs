@@ -1,5 +1,6 @@
 using System.Collections.Concurrent;
 using System.Diagnostics;
+using Win2Pad.Core.Edge;
 
 namespace Win2Pad.Core;
 
@@ -9,11 +10,12 @@ namespace Win2Pad.Core;
 /// </summary>
 public static class CaptureSession
 {
-    internal enum Queued { Report, MouseReport, SwitchHost, GoLocal }
+    internal enum Queued { Report, MouseReport, SwitchHost, GoLocal, EdgeEnter }
 
     internal readonly record struct InputReport(Queued Kind,
         KeyModifiers Modifiers = KeyModifiers.None, byte[]? Usages = null,
-        MouseButtons Buttons = MouseButtons.None, int Dx = 0, int Dy = 0, int Wheel = 0);
+        MouseButtons Buttons = MouseButtons.None, int Dx = 0, int Dy = 0, int Wheel = 0,
+        IReadOnlyList<PinMove>? Moves = null);
 
     internal sealed class ReportQueue
     {
@@ -39,7 +41,7 @@ public static class CaptureSession
             }
         }
 
-        public void EnqueueTargetChange(Queued kind)
+        public void EnqueueTargetChange(Queued kind, IReadOnlyList<PinMove>? moves = null)
         {
             lock (_mouseLock)
             {
@@ -48,7 +50,7 @@ public static class CaptureSession
                     _ordered.Enqueue(mouse);
                     _pendingMouse = null;
                 }
-                _ordered.Enqueue(new(kind));
+                _ordered.Enqueue(new(kind, Moves: moves));
             }
         }
 
@@ -106,6 +108,26 @@ public static class CaptureSession
                 : "  [gesture] shake to switch disabled");
         }
 
+        // Edge switching: settings saved from the UI replace the switcher in place.
+        var edgeClock = Stopwatch.StartNew();
+        double Seconds() => edgeClock.Elapsed.TotalSeconds;
+        var switcher = CreateSwitcher(EdgeOptions.Load());
+        void OnEdgeSaved(EdgeOptions options)
+        {
+            var replacement = CreateSwitcher(options);
+            replacement.OnTargetChanged(peripheral.IsLocalTarget);
+            Volatile.Write(ref switcher, replacement);
+        }
+        EdgeOptions.Saved += OnEdgeSaved;
+
+        EdgeSwitcher CreateSwitcher(EdgeOptions options)
+        {
+            log(!options.Enabled ? "  [edge] edge switching disabled"
+                : !options.Calibration.IsValid ? "  [edge] edge switching needs a calibration"
+                : $"  [edge] tablet on the {options.Side.ToString().ToLowerInvariant()}, calibration {options.CalibrationWidth}x{options.CalibrationHeight}");
+            return new EdgeSwitcher(options, new Win32Screens(), Seconds);
+        }
+
         // Keystrokes must all be delivered, but pointer motion is coalesced: the hook produces
         // far more events than the BLE link can carry. Target changes travel through the same
         // queue so they take effect only after the key-release report has gone to the old host.
@@ -157,6 +179,30 @@ public static class CaptureSession
                             await peripheral.SendMouseAsync(key.Buttons, key.Dx, key.Dy, key.Wheel);
                             lastMouseSend = clock.ElapsedMilliseconds;
                             Interlocked.Increment(ref sent);
+                            continue;
+                        }
+
+                        if (key.Kind == Queued.EdgeEnter)
+                        {
+                            await peripheral.RefreshHostNamesAsync();
+                            if (!SelectEdgeHost(peripheral))
+                            {
+                                Volatile.Read(ref switcher).OnTargetChanged(local: true);
+                                capture.SetPassThrough(true);
+                                log("  [edge] no tablet connected - staying on this PC");
+                                continue;
+                            }
+
+                            // Pin into a corner, then move along the edge, each followed by a pause
+                            // so the tablet does not accelerate them. Motion the user makes meanwhile
+                            // waits in the coalescing slot and follows these moves.
+                            foreach (var move in key.Moves ?? [])
+                            {
+                                await peripheral.SendMouseAsync(MouseButtons.None, move.Dx, move.Dy, 0);
+                                await Task.Delay(move.SettleMs, pumpCancellation.Token);
+                            }
+                            lastMouseSend = clock.ElapsedMilliseconds;
+                            log($"  [edge] -> {peripheral.SelectedHostDisplay}");
                             continue;
                         }
 
@@ -227,6 +273,29 @@ public static class CaptureSession
         capture.MouseReport += (buttons, dx, dy, wheel) =>
         {
             reports.EnqueueMouse(buttons, dx, dy, wheel);
+
+            // Runs on the hook thread, before the hook re-centres the pointer, so placing it here
+            // and leaving pass-through on is what makes it reappear at the matching point.
+            if (Volatile.Read(ref switcher).OnRemoteMotion(dx, dy) is { } back)
+            {
+                capture.SetPassThrough(true);
+                Win32Screens.SetCursor(back.X, back.Y);
+                // Nothing may stay pressed on the tablet once it stops hearing from us.
+                if (buttons != MouseButtons.None) reports.EnqueueMouse(MouseButtons.None, 0, 0, 0);
+                reports.EnqueueKeyboard(KeyModifiers.None, []);
+                reports.EnqueueTargetChange(Queued.GoLocal);
+            }
+            Wake();
+        };
+        capture.LocalPointerMoved += (dx, dy, buttonsHeld) =>
+        {
+            var current = Volatile.Read(ref switcher);
+            if (current.OnLocalMotion(dx, dy, buttonsHeld) is not { } entry) return;
+
+            // Stop Windows from moving the pointer at once; the reports wait until the pump has
+            // selected the tablet and sent the entry moves.
+            capture.SetPassThrough(false);
+            reports.EnqueueTargetChange(Queued.EdgeEnter, entry.Moves);
             Wake();
         };
         capture.SwitchHostRequested += () =>
@@ -251,9 +320,14 @@ public static class CaptureSession
 
         await peripheral.RefreshHostNamesAsync();
         capture.SetPassThrough(peripheral.IsLocalTarget);
+        switcher.OnTargetChanged(peripheral.IsLocalTarget);
 
         // The UI can retarget mid-session, and the hook has to stop swallowing input when it does.
-        void OnTargetChanged() => capture.SetPassThrough(peripheral.IsLocalTarget);
+        void OnTargetChanged()
+        {
+            capture.SetPassThrough(peripheral.IsLocalTarget);
+            Volatile.Read(ref switcher).OnTargetChanged(peripheral.IsLocalTarget);
+        }
         peripheral.TargetChanged += OnTargetChanged;
 
         try
@@ -272,6 +346,7 @@ public static class CaptureSession
         {
             capture.Stop();
             peripheral.TargetChanged -= OnTargetChanged;
+            EdgeOptions.Saved -= OnEdgeSaved;
         }
 
         pumpCancellation.Cancel();
@@ -279,5 +354,16 @@ public static class CaptureSession
         await peripheral.ReleaseKeysAsync();
         log($"  capture stopped. keyboard events={capture.KeyboardEvents}, mouse events={capture.MouseEvents}, reports sent={sent}");
         return sent;
+    }
+
+    /// <summary>Keeps the selected tablet if it is still connected, otherwise takes the first one.</summary>
+    private static bool SelectEdgeHost(HidPeripheral peripheral)
+    {
+        var hosts = peripheral.Hosts();
+        if (hosts.Count == 0) return false;
+        if (!peripheral.IsLocalTarget && peripheral.SelectedHostId is { } id
+            && hosts.Any(h => string.Equals(h.DeviceId, id, StringComparison.OrdinalIgnoreCase)))
+            return true;
+        return peripheral.SelectHost(0);
     }
 }

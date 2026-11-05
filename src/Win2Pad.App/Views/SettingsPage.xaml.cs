@@ -2,6 +2,7 @@ using System.Windows;
 using System.Windows.Controls;
 using Win2Pad.App.Services;
 using Win2Pad.Core;
+using Win2Pad.Core.Edge;
 
 namespace Win2Pad.App.Views;
 
@@ -21,6 +22,7 @@ public partial class SettingsPage : Page
 
         SwitchGestureToggle.IsChecked =
             SwitchGestureOptions.Load(AppPaths.SwitchGestureConfig).Enabled;
+        LoadEdgeOptions();
         Loaded += OnLoaded;
         Unloaded += OnUnloaded;
     }
@@ -66,6 +68,56 @@ public partial class SettingsPage : Page
         // The setting did not persist, so the switch must not claim that it did.
         SwitchGestureToggle.IsChecked = !enabled;
     }
+
+    private bool _loadingEdge;
+
+    private void LoadEdgeOptions()
+    {
+        _loadingEdge = true;
+        var options = EdgeOptions.Load();
+        EdgeToggle.IsChecked = options.Enabled;
+        SideCombo.SelectedItem = SideCombo.Items.OfType<ComboBoxItem>()
+            .First(item => (string)item.Tag == options.Side.ToString());
+        CalibrationWidthBox.Text = options.CalibrationWidth > 0 ? options.CalibrationWidth.ToString() : "";
+        CalibrationHeightBox.Text = options.CalibrationHeight > 0 ? options.CalibrationHeight.ToString() : "";
+        _loadingEdge = false;
+    }
+
+    /// <summary>Saves every edge setting together; a running capture session picks the change up at once.</summary>
+    private void OnEdgeChanged(object sender, RoutedEventArgs e)
+    {
+        if (_loadingEdge || !IsInitialized) return;
+
+        // Reload first so tuning values edited by hand in the JSON file are kept.
+        var current = EdgeOptions.Load();
+        var side = SideCombo.SelectedItem is ComboBoxItem { Tag: string tag } && Enum.TryParse<TabletSide>(tag, out var parsed)
+            ? parsed
+            : current.Side;
+        var updated = current with
+        {
+            Enabled = EdgeToggle.IsChecked == true,
+            Side = side,
+            CalibrationWidth = ParseCounts(CalibrationWidthBox.Text, current.CalibrationWidth),
+            CalibrationHeight = ParseCounts(CalibrationHeightBox.Text, current.CalibrationHeight)
+        };
+        if (updated == current) return;
+
+        if (!updated.TrySave(null, out var error))
+        {
+            App.Current.Tray?.ShowMessage($"Could not save the edge settings: {error}");
+            LoadEdgeOptions();
+            return;
+        }
+
+        // Turning it on needs the capture running even if the user never pressed Capture.
+        if (updated.Enabled && PeripheralService.Instance.IsRunning)
+            _ = PeripheralService.Instance.StartCaptureAsync(armEarly: true);
+    }
+
+    private static int ParseCounts(string text, int fallback) =>
+        string.IsNullOrWhiteSpace(text) ? 0
+        : int.TryParse(text.Trim(), out var value) && value is > 0 and <= 100_000 ? value
+        : fallback;
 
     private void OnExit(object sender, RoutedEventArgs e) => App.Current.ExitApplication();
 }

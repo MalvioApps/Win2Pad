@@ -51,6 +51,14 @@ public sealed class AppSettings : INotifyPropertyChanged
         set { if (Set(ref _indicatorTop, value)) Save(); }
     }
 
+    private bool _checkForUpdates = true;
+    /// <summary>Look for a new version shortly after starting, and download it in the background.</summary>
+    public bool CheckForUpdates
+    {
+        get => _checkForUpdates;
+        set { if (Set(ref _checkForUpdates, value)) Save(); }
+    }
+
     private static AppSettings Load()
     {
         try

@@ -30,6 +30,9 @@ public partial class SettingsPage : Page
 
     private void OnLoaded(object sender, RoutedEventArgs e)
     {
+        UpdateService.Instance.PropertyChanged -= OnUpdateChanged;
+        UpdateService.Instance.PropertyChanged += OnUpdateChanged;
+        RefreshUpdates();
         PeripheralService.Instance.PropertyChanged -= OnServiceChanged;
         PeripheralService.Instance.PropertyChanged += OnServiceChanged;
         RefreshDevice();
@@ -41,6 +44,7 @@ public partial class SettingsPage : Page
 
     private void OnUnloaded(object sender, RoutedEventArgs e)
     {
+        UpdateService.Instance.PropertyChanged -= OnUpdateChanged;
         PeripheralService.Instance.PropertyChanged -= OnServiceChanged;
         var watcher = _gestureWatcher;
         _gestureWatcher = null;
@@ -160,6 +164,22 @@ public partial class SettingsPage : Page
 
     private void OnFineTune(object sender, RoutedEventArgs e) =>
         new CalibrationWindow { Owner = Window.GetWindow(this) }.ShowDialog();
+
+    private void OnUpdateChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e) => RefreshUpdates();
+
+    private void RefreshUpdates()
+    {
+        var updates = UpdateService.Instance;
+        VersionText.Text = $"Win2Pad {updates.CurrentVersion}";
+        UpdateStatus.Text = updates.Status is { Length: > 0 } status ? status
+            : updates.IsInstalled ? "Up to date as far as we know." : "A development build: install Win2Pad to get updates.";
+        CheckButton.IsEnabled = !updates.IsBusy;
+        RestartButton.Visibility = updates.IsReady ? Visibility.Visible : Visibility.Collapsed;
+    }
+
+    private async void OnCheckUpdates(object sender, RoutedEventArgs e) => await UpdateService.Instance.CheckAsync();
+
+    private void OnRestartToUpdate(object sender, RoutedEventArgs e) => UpdateService.Instance.RestartToUpdate();
 
     private void OnExit(object sender, RoutedEventArgs e) => App.Current.ExitApplication();
 }

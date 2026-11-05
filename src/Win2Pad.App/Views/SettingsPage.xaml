@@ -127,6 +127,35 @@
       <ui:ToggleSwitch x:Name="SwitchGestureToggle" Click="OnSwitchGestureChanged" />
     </ui:CardControl>
 
+    <ui:TextBlock Text="Updates" FontTypography="BodyStrong" Margin="0,12,0,8" />
+
+    <ui:CardControl Icon="{ui:SymbolIcon ArrowDownload24}" Margin="0,0,0,8">
+      <ui:CardControl.Header>
+        <StackPanel>
+          <ui:TextBlock x:Name="VersionText" Text="Win2Pad" FontTypography="BodyStrong" />
+          <ui:TextBlock x:Name="UpdateStatus" FontTypography="Caption" TextWrapping="Wrap"
+                        Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+        </StackPanel>
+      </ui:CardControl.Header>
+      <StackPanel Orientation="Horizontal">
+        <ui:Button x:Name="RestartButton" Content="Restart to update" Appearance="Primary" Margin="0,0,8,0"
+                   Visibility="Collapsed" Click="OnRestartToUpdate" />
+        <ui:Button x:Name="CheckButton" Content="Check now" Click="OnCheckUpdates" />
+      </StackPanel>
+    </ui:CardControl>
+
+    <ui:CardControl Icon="{ui:SymbolIcon ArrowSync24}" Margin="0,0,0,8">
+      <ui:CardControl.Header>
+        <StackPanel>
+          <ui:TextBlock Text="Update automatically" FontTypography="BodyStrong" />
+          <ui:TextBlock FontTypography="Caption" TextWrapping="Wrap"
+                        Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                        Text="Downloads new versions in the background and installs them the next time Win2Pad closes." />
+        </StackPanel>
+      </ui:CardControl.Header>
+      <ui:ToggleSwitch IsChecked="{Binding CheckForUpdates, Mode=TwoWay}" />
+    </ui:CardControl>
+
     <ui:CardControl Icon="{ui:SymbolIcon ArrowExit20}">
       <ui:CardControl.Header>
         <StackPanel>

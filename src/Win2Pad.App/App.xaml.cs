@@ -72,9 +72,23 @@ public partial class App : Application
         MainWindow = new MainWindow();
         if (!startHidden) MainWindow.Show();
 
+        _ = CheckForUpdatesLaterAsync();
+
         // Auto-start matters most for the hidden launch, where there is no window to press Start in.
         if (startHidden) _ = StartResidentAsync();
         else if (AppSettings.Instance.StartPeripheralOnLaunch) _ = PeripheralService.Instance.StartAsync();
+    }
+
+    /// <summary>
+    /// A while after starting, so the check never competes with the Bluetooth start-up: download a
+    /// new version quietly; it installs when the app next closes.
+    /// </summary>
+    private async Task CheckForUpdatesLaterAsync()
+    {
+        if (!AppSettings.Instance.CheckForUpdates || !UpdateService.Instance.IsInstalled) return;
+        await Task.Delay(TimeSpan.FromSeconds(30));
+        if (await UpdateService.Instance.CheckAsync() is { } version)
+            Tray?.ShowMessage($"Win2Pad {version} is downloaded. It installs when Win2Pad closes, or restart it from Settings.");
     }
 
     private void UpdateLinkState()
@@ -189,6 +203,7 @@ public partial class App : Application
         if (_exiting) return;
         _exiting = true;
         await PeripheralService.Instance.StopAsync();
+        UpdateService.Instance.ApplyOnExit();
         Tray?.Dispose();
         Indicator?.Close();
         // Shutdown closes windows, so it must not run inside a close that is still unwinding.

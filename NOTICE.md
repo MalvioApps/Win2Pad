@@ -50,3 +50,8 @@ and list their changes, as section 4 of the Apache License requires.
 
 <https://github.com/codebude/QRCoder>, used as a NuGet package to draw the calibration QR code.
 MIT License, Copyright (c) 2013-2018 Raffael Herrmann.
+
+## Velopack
+
+<https://github.com/velopack/velopack>, used as a NuGet package and build tool for the installer
+and automatic updates. MIT License, Copyright (c) Velopack Ltd.

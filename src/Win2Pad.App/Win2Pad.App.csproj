@@ -10,7 +10,13 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <LangVersion>latest</LangVersion>
     <RootNamespace>Win2Pad.App</RootNamespace>
-    <AssemblyName>Win2Pad.App</AssemblyName>
+    <AssemblyName>Win2Pad</AssemblyName>
+    <Version>0.1.0</Version>
+    <Product>Win2Pad</Product>
+    <Company>MalvioApps</Company>
+    <Copyright>Copyright (c) 2026 MalvioApps</Copyright>
+    <!-- Program.Main runs Velopack's install/update hooks before WPF starts. -->
+    <StartupObject>Win2Pad.App.Program</StartupObject>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <!-- Sets the exe, taskbar and Alt+Tab icon. The tray icon is deliberately not this one:
          it stays a monochrome glyph so it can follow the system theme. -->
@@ -22,6 +28,12 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Win2Pad.Core\Win2Pad.Core.csproj" />
+  </ItemGroup>
+
+  <!-- App.xaml is compiled as a page so the generated Main does not compete with Program.Main. -->
+  <ItemGroup>
+    <ApplicationDefinition Remove="App.xaml" />
+    <Page Include="App.xaml" />
   </ItemGroup>
 
   <!-- Also a resource, so the title bar and tray can pick a size-appropriate frame at runtime. -->
@@ -38,6 +50,7 @@
 
   <ItemGroup>
     <PackageReference Include="QRCoder" Version="1.6.0" />
+    <PackageReference Include="Velopack" Version="1.2.161" />
     <PackageReference Include="WPF-UI" Version="4.3.0" />
   </ItemGroup>
 

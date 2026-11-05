@@ -6,8 +6,17 @@ screen and it carries on onto the tablet, like Universal Control does between a 
 Win2Pad is software only. Your PC's own Bluetooth presents itself to the iPad as a standard
 Bluetooth keyboard and mouse, so there is nothing to install on the iPad and no extra hardware.
 
-> Status: early development. The Bluetooth keyboard and mouse, edge switching and automatic
-> calibration work; the device list, screen arrangement editor and installer are in progress.
+> Status: early development (0.1). Everything below works; expect rough edges.
+
+## Install
+
+Download `Win2Pad-win-Setup.exe` from the [latest release](https://github.com/MalvioApps/Win2Pad/releases/latest)
+and run it. Win2Pad installs for your user only (no administrator rights), adds itself to the
+Start menu and updates itself from GitHub releases. Windows may warn that the installer is not
+signed; choose *More info → Run anyway*.
+
+Then follow the checklist on the Status page: start Win2Pad, pair the iPad from its
+Settings → Bluetooth, and push the pointer against the screen edge.
 
 ## Requirements
 
@@ -42,15 +51,27 @@ For that it needs the iPad's screen size in mouse counts:
 
 Each iPad is remembered with its calibration for both orientations.
 
-## Roadmap
+## Features
 
-| Phase | Result |
-|---|---|
-| 1. Bluetooth and keyboard | Control the iPad with a hotkey; tray icon shows the link state |
-| 2. Edge switching | Move across any edge of any monitor and back |
-| 3. Automatic calibration | One-click calibration through a page in Safari, per device and orientation |
-| 4. Interface | Device list, visual screen arrangement editor, floating status indicator |
-| 5. Distribution | Installer, automatic updates, start with Windows |
+- **Edge switching** across any side of any monitor, arranged visually like Windows' display
+  settings, with the shared stretch of edge adjustable up to every screen on that side.
+- **Automatic calibration** from the iPad model read over Bluetooth, with an optional Safari
+  fine-tune that also measures the pointer acceleration.
+- **Remembered devices** with their own calibration, orientation and pointer speed.
+- **Status at a glance**: the tray icon and an optional floating label change colour with where
+  the input is.
+- **Keyboard layouts**: keys go by physical position, AltGr works.
+- **Automatic updates** from GitHub releases; starts with Windows if you want.
+
+## Releasing
+
+Push a version tag; the `release` workflow tests, builds the Velopack installer and publishes
+the GitHub release that installed copies update from:
+
+```
+git tag v0.1.0
+git push origin v0.1.0
+```
 
 ## Building
 
@@ -59,7 +80,9 @@ dotnet test Win2Pad.sln
 dotnet run --project src/Win2Pad.App
 ```
 
-Needs the .NET 9 SDK (see `global.json`) and the .NET 8 runtime.
+Needs the .NET 9 SDK (see `global.json`) and the .NET 8 runtime. To build the installer
+locally, install `vpk` (`dotnet tool install -g vpk --version 1.2.161`) and follow the steps in
+`.github/workflows/release.yml`.
 
 ## Credits
 

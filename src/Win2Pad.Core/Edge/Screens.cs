@@ -1,11 +1,14 @@
 using System.Runtime.InteropServices;
+using System.Text.Json.Serialization;
 
 namespace Win2Pad.Core.Edge;
 
 /// <summary>A monitor in physical screen pixels; Right and Bottom are exclusive.</summary>
 public readonly record struct ScreenRect(int Left, int Top, int Right, int Bottom)
 {
+    [JsonIgnore]
     public int Width => Right - Left;
+    [JsonIgnore]
     public int Height => Bottom - Top;
 }
 

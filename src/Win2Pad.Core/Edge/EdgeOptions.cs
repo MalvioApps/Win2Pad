@@ -10,12 +10,16 @@ namespace Win2Pad.Core.Edge;
 /// </summary>
 public sealed record TabletPlacement(ScreenRect Monitor, TabletSide Side, int Offset, int Length)
 {
+    [JsonIgnore]
     public int MonitorStart => Side is TabletSide.Top or TabletSide.Bottom ? Monitor.Left : Monitor.Top;
+    [JsonIgnore]
     public int MonitorEnd => Side is TabletSide.Top or TabletSide.Bottom ? Monitor.Right : Monitor.Bottom;
 
     /// <summary>Where the pointer can cross: the stretch of the monitor's side the tablet touches.</summary>
+    [JsonIgnore]
     public (int Start, int End) Overlap => (Math.Max(Offset, MonitorStart), Math.Min(Offset + Length, MonitorEnd));
 
+    [JsonIgnore]
     public bool Touches => Overlap.End > Overlap.Start;
 }
 

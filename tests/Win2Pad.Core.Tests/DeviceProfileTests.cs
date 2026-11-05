@@ -98,6 +98,32 @@ public sealed class DeviceProfileTests
     }
 
     [Fact]
+    public void A_recognised_tablet_gets_the_default_acceleration_curve()
+    {
+        var profile = DeviceProfile.FromTablet(Id, new TabletInfo("iPad", "Apple Inc.", "iPad16,5"));
+        Assert.Equal(TabletModels.DefaultGainCurve, profile.GainCurve);
+        Assert.Equal(TabletModels.CurveHeadroom, profile.Active!.AwayFactor);
+    }
+
+    [Fact]
+    public void A_profile_from_before_curves_gets_the_default_and_only_the_headroom()
+    {
+        var old = DeviceProfile.FromTablet(Id, new TabletInfo("iPad", "Apple Inc.", "iPad7,12"), awayFactor: 6) with { GainCurve = null };
+        var applied = old.ApplyTo(new EdgeOptions());
+        Assert.Equal(TabletModels.DefaultGainCurve, applied.GainCurve);
+        Assert.Equal(TabletModels.CurveHeadroom, applied.AwayFactor);
+    }
+
+    [Fact]
+    public void Curves_compare_by_content_so_unchanged_settings_are_equal()
+    {
+        var a = new EdgeOptions { GainCurve = TabletModels.DefaultGainCurve };
+        var b = new EdgeOptions { GainCurve = TabletModels.DefaultGainCurve };
+        Assert.Equal(a, b);
+        Assert.NotEqual(a, b with { GainCurve = [new GainPoint(2, 1)] });
+    }
+
+    [Fact]
     public void The_store_round_trips_and_removes()
     {
         var path = Path.Combine(Path.GetTempPath(), $"win2pad-devices-{Guid.NewGuid():N}.json");

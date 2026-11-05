@@ -117,8 +117,8 @@ public sealed class AccelerationTests
         model.Enter(0.5);
         model.Move(0, 60, 1.0);                  // y = 80
 
-        // Counted 1.3x without a curve: 52 + 52 from y = 80 reaches the edge with 24 counts to
-        // spare, under the 3% (30-count) push.
+        // Counted 1.3x without a curve: 52 + 52 from y = 80 reaches the edge and goes about 18
+        // counts of real movement past it, under the 3% (30-count) push.
         Assert.False(model.Move(0, -40, 1.10));
         Assert.False(model.Move(0, -40, 1.12));
         Assert.Equal(0, model.Y);
@@ -143,10 +143,64 @@ public sealed class AccelerationTests
         var options = new EdgeOptions { CalibrationWidth = 2000, CalibrationHeight = 1000 };
         var model = options.CreateModel(TabletSide.Bottom);
         model.Enter(0.5);
-        model.Place(1000, 0);                    // resting exactly at the top
-        Assert.False(model.Move(0, -15, 1.1));   // 19.5 past (x1.3), under 30
+        model.Move(0, 200, 1.0);                 // into the tablet first, which arms the return
+        model.Place(1000, 0);                    // then resting exactly at the top
+        // The push is measured as the hand made it (the 1.3x bias and acceleration taken out).
+        Assert.False(model.Move(0, -15, 1.1));   // 15 past, under 30
         Assert.False(model.Move(0, -15, 2.0));   // after a pause: counting from zero again
-        Assert.True(model.Move(0, -10, 2.05));   // 19.5 + 13 = 32.5 past, within the reset window
+        Assert.True(model.Move(0, -20, 2.05));   // 15 + 20 = 35 past, within the reset window
+    }
+
+    [Fact]
+    public void Right_after_entering_a_move_back_towards_the_edge_does_not_return()
+    {
+        var options = new EdgeOptions { CalibrationWidth = 2000, CalibrationHeight = 1000 };
+        var model = options.CreateModel(TabletSide.Bottom); // enters next to the top edge
+        model.Enter(0.5);                                   // y = 20
+        Assert.False(model.LeftEdge);
+        Assert.False(model.Move(0, -200, 1.0));             // straight back up: not armed yet
+        Assert.False(model.Move(0, 50, 1.1));               // y = 50: still within 8%
+        Assert.False(model.Move(0, -200, 1.2));
+        Assert.False(model.LeftEdge);
+    }
+
+    [Fact]
+    public void Once_well_into_the_tablet_the_way_back_is_armed()
+    {
+        var options = new EdgeOptions { CalibrationWidth = 2000, CalibrationHeight = 1000 };
+        var model = options.CreateModel(TabletSide.Bottom);
+        model.Enter(0.5);
+        model.Move(0, 100, 1.0);                            // y = 120: past the 80-count arm
+        Assert.True(model.LeftEdge);
+        Assert.True(model.Move(0, -200, 1.1));              // 120 up to the edge, then 46 real past it
+    }
+
+    [Fact]
+    public void A_fast_flick_past_the_edge_counts_as_the_hand_moved_not_as_the_tablet_did()
+    {
+        // With the measured curve a 32-count report travels 5.35x; past the edge only the hand's
+        // movement counts towards the push.
+        var options = new EdgeOptions
+        {
+            CalibrationWidth = 2000, CalibrationHeight = 1000,
+            GainCurve = [new GainPoint(2, 1), new GainPoint(32, 5.35)]
+        };
+        var model = options.CreateModel(TabletSide.Bottom);
+        model.Enter(0.5);
+        model.Move(0, 100, 1.0);                            // armed, y well below the top
+        model.Place(1000, 100);
+        Assert.False(model.Move(0, -32, 1.1));              // 171 travelled: 100 to the edge, 71 past = 13 real
+        Assert.Equal(0, model.Y);
+    }
+
+    [Fact]
+    public void The_push_needed_follows_the_users_choice()
+    {
+        var light = new EdgeOptions { CalibrationWidth = 2000, CalibrationHeight = 1000, ReturnPushScale = 0.5 };
+        var firm = light with { ReturnPushScale = 2 };
+        Assert.Equal(15, light.CreateModel(TabletSide.Bottom).MarginCounts);
+        Assert.Equal(60, firm.CreateModel(TabletSide.Bottom).MarginCounts);
+        Assert.Equal(40, light.CreateModel(TabletSide.Right).MarginCounts); // sides: 4% x 0.5 of 2000
     }
 
     [Fact]
@@ -215,7 +269,7 @@ public sealed class AccelerationTests
         Assert.Equal(options.ReturnMargin, beside.ReturnMargin);
         Assert.Null(beside.GainCurve);
 
-        var tuned = (options with { GainCurve = Steep.Points }).CreateModel(TabletSide.Right);
+        var tuned = (options with { GainCurve = new GainPoints(Steep.Points) }).CreateModel(TabletSide.Right);
         Assert.NotNull(tuned.GainCurve);
     }
 }

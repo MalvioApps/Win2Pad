@@ -78,6 +78,7 @@ public partial class ArrangementPage : Page
         _monitors = Win32Screens.All();
         _options = EdgeOptions.Load();
         EdgeToggle.IsChecked = _options.Enabled;
+        PushSlider.Value = _options.ReturnPushScale;
 
         var calibration = PeripheralService.Instance.ActiveProfile?.Active?.Pointer
                           ?? (_options.Calibration.IsValid ? _options.Calibration : new PointerCalibration(3349, 2512));
@@ -359,6 +360,16 @@ public partial class ArrangementPage : Page
         _tablet = TabletRect(placement);
         Draw();
         RefreshSlider();
+    }
+
+    /// <summary>Saved when the slider is let go; a running session picks it up at once.</summary>
+    private void OnPushChanged(object sender, RoutedEventArgs e)
+    {
+        var current = EdgeOptions.Load();
+        var scale = Math.Round(PushSlider.Value, 2);
+        if (Math.Abs(current.ReturnPushScale - scale) < 0.001) return;
+        if (!(current with { ReturnPushScale = scale }).TrySave(null, out var error))
+            ShowHint(InfoBarSeverity.Error, $"Could not save: {error}");
     }
 
     private void OnEdgeToggle(object sender, RoutedEventArgs e)

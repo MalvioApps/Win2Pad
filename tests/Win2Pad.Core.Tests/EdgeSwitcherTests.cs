@@ -96,6 +96,7 @@ public sealed class EdgeSwitcherTests
         switcher.OnLocalMotion(20, 0, false);
 
         _now += 2; // past the settle pauses and the exit grace
+        Assert.Null(switcher.OnRemoteMotion(300, 0));  // into the tablet first, away from its edge
         Assert.Null(switcher.OnRemoteMotion(0, -375)); // up a quarter of the tablet
         var back = switcher.OnRemoteMotion(-3000, 0);  // well past the left edge
 
@@ -122,6 +123,7 @@ public sealed class EdgeSwitcherTests
         var switcher = Create(screens);
         switcher.OnLocalMotion(20, 0, false);
         _now += 2;
+        switcher.OnRemoteMotion(300, 0);
         switcher.OnRemoteMotion(-5000, 0);
 
         Assert.Null(switcher.OnLocalMotion(50, 0, false));
@@ -199,7 +201,8 @@ public sealed class EdgeSwitcherTests
         switcher.OnLocalMotion(50, 0, false);
         _now += 2;
 
-        // Down to the bottom of the tablet, which is below the bottom of the monitor.
+        // Into the tablet, then down to its bottom, which is below the bottom of the monitor.
+        switcher.OnRemoteMotion(300, 0);
         switcher.OnRemoteMotion(0, 5000);
         var back = switcher.OnRemoteMotion(-5000, 0);
         Assert.Equal((1919 - 8, 1079), back);
@@ -221,6 +224,7 @@ public sealed class EdgeSwitcherTests
 
         // Back out at the far left of the tablet: the first monitor's bottom edge.
         _now += 2;
+        switcher.OnRemoteMotion(0, 300);
         switcher.OnRemoteMotion(-5000, 0);
         var back = switcher.OnRemoteMotion(0, -5000);
         Assert.Equal((0, 1079 - 8), back);

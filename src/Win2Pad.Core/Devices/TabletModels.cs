@@ -28,6 +28,19 @@ public static class TabletModels
     /// </summary>
     public const double DefaultPointsPerCount = 0.3225;
 
+    /// <summary>
+    /// iPadOS pointer acceleration at the default tracking speed, measured with the Safari
+    /// calibration on an iPad (7th generation): a 32-count report travels 5.35 times as far as a
+    /// slow one. Assumed to hold for every model, like the gain; a fine-tune replaces it.
+    /// </summary>
+    public static GainPoints DefaultGainCurve =>
+    [
+        new(2, 1.0), new(4, 1.283), new(8, 1.852), new(16, 3.002), new(32, 5.35)
+    ];
+
+    /// <summary>Acceleration headroom left once the curve is followed: moves faster than measured.</summary>
+    public const double CurveHeadroom = 1.15;
+
     private static readonly TabletModel Small97 = new("9.7-inch", 1024, 768);
     private static readonly TabletModel Ipad102 = new("10.2-inch", 1080, 810);
     private static readonly TabletModel Air105 = new("10.5-inch", 1112, 834);

@@ -50,10 +50,17 @@ public sealed class PointerModel
     /// pointer is pushed against the edge, so being pulled back a little early is the lesser evil.
     /// Moves towards the edge then count up to <see cref="TowardFactor"/> times, moves away once.
     /// </param>
+    /// <param name="returnArmDistance">
+    /// Share of the tablet the pointer must first move away from the return edge, after entering,
+    /// before pushing back out can return. The pointer enters right next to that edge, so without
+    /// it the smallest move back towards it returned at once.
+    /// </param>
     public PointerModel(PointerCalibration calibration, TabletSide side, double returnMargin = 0.04,
         double awayFactor = 2.4, double overshootResetSeconds = 0.4, double entryInset = 0.02,
-        GainCurve? gainCurve = null, double returnLead = 0, int leadMinSpeed = 4, bool earlyReturn = false)
+        GainCurve? gainCurve = null, double returnLead = 0, int leadMinSpeed = 4, bool earlyReturn = false,
+        double returnArmDistance = 0)
     {
+        ReturnArmDistance = Math.Max(0, returnArmDistance);
         EarlyReturn = earlyReturn;
         GainCurve = gainCurve;
         ReturnLead = Math.Max(0, returnLead);
@@ -77,6 +84,13 @@ public sealed class PointerModel
     public double ReturnLead { get; }
     public int LeadMinSpeed { get; }
     public bool EarlyReturn { get; }
+    public double ReturnArmDistance { get; }
+
+    /// <summary>How far from the return edge the pointer must get before it can return, in counts.</summary>
+    public int ArmCounts => (int)Math.Round(ReturnArmDistance * ReturnExtent);
+
+    /// <summary>True once the pointer has been far enough from the return edge since entering.</summary>
+    public bool LeftEdge { get; private set; } = true;
 
     /// <summary>
     /// With <see cref="EarlyReturn"/>: how many times moves towards the edge count. With a
@@ -155,6 +169,7 @@ public sealed class PointerModel
         }
 
         Place(x, y);
+        LeftEdge = ArmCounts == 0;
         return [pin, along];
     }
 
@@ -168,7 +183,7 @@ public sealed class PointerModel
         // far as the real pointer did.
         var speed = Math.Sqrt((double)dx * dx + (double)dy * dy);
         var ratio = GainCurve?.Ratio(speed) ?? 1.0;
-        var returned = ReturnMove(dx * ratio, dy * ratio, speed, now);
+        var returned = ReturnMove(dx * ratio, dy * ratio, speed, ratio, now);
         if (now < _armedAt)
         {
             Overshoot = 0;
@@ -177,7 +192,7 @@ public sealed class PointerModel
         return returned;
     }
 
-    private bool ReturnMove(double dx, double dy, double speed, double now)
+    private bool ReturnMove(double dx, double dy, double speed, double ratio, double now)
     {
         int w = Calibration.Width, h = Calibration.Height;
         double ex = dx, ey = dy;
@@ -204,6 +219,26 @@ public sealed class PointerModel
         };
         X = Math.Clamp(nx, 0, w);
         Y = Math.Clamp(ny, 0, h);
+
+        // Not until the pointer has been away from the return edge since it came in.
+        var fromEdge = Side switch
+        {
+            TabletSide.Top => h - Y,
+            TabletSide.Bottom => Y,
+            TabletSide.Left => w - X,
+            _ => X
+        };
+        if (!LeftEdge && fromEdge >= ArmCounts) LeftEdge = true;
+        if (!LeftEdge)
+        {
+            Overshoot = 0;
+            return false;
+        }
+
+        // The push past the edge is measured as the hand made it, before the tablet's
+        // acceleration and the model's bias: a quick flick must not count four times over.
+        var scale = Math.Max(1e-6, ratio * factor);
+        beyond /= scale;
 
         // Heading for the edge quickly and already close to it: return now, before the tablet
         // can open what it shows at that edge.

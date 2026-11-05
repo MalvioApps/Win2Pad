@@ -24,7 +24,8 @@
   .done #step { color: var(--ok); } .done .bar > div { background: var(--ok); }
   .failed #step { color: var(--bad); } .failed .bar > div { background: var(--bad); }
   #conn { margin-top: 16px; font-size: 14px; color: var(--muted); }
-  #dot { position: fixed; width: 18px; height: 18px; margin: -9px 0 0 -9px; border-radius: 50%;
+  /* border-box: the 3px border is inside the 18px, so the -9px margins centre it on the pointer. */
+  #dot { position: fixed; box-sizing: border-box; width: 18px; height: 18px; margin: -9px 0 0 -9px; border-radius: 50%;
     border: 3px solid var(--accent); pointer-events: none; display: none; }
 </style>
 </head>

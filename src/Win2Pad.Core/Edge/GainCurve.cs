@@ -52,3 +52,23 @@ public sealed class GainCurve
         return new GainCurve(list.Select(g => new GainPoint(g.CountsPerReport, Math.Round(g.PointsPerCount / slow, 3))));
     }
 }
+
+/// <summary>
+/// The measured points as settings store them. A list that compares by content: records holding
+/// it (profiles, edge settings) then compare equal when nothing changed, instead of by reference.
+/// </summary>
+public sealed class GainPoints : List<GainPoint>
+{
+    public GainPoints() { }
+
+    public GainPoints(IEnumerable<GainPoint> points) : base(points) { }
+
+    public override bool Equals(object? obj) => obj is GainPoints other && this.SequenceEqual(other);
+
+    public override int GetHashCode()
+    {
+        var hash = new HashCode();
+        foreach (var point in this) hash.Add(point);
+        return hash.ToHashCode();
+    }
+}

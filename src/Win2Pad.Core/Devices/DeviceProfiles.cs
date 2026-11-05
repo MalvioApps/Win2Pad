@@ -39,7 +39,7 @@ public sealed record DeviceProfile
     public bool Landscape { get; init; } = true;
 
     /// <summary>The pointer acceleration measured with Safari; null until fine-tuned.</summary>
-    public IReadOnlyList<GainPoint>? GainCurve { get; init; }
+    public GainPoints? GainCurve { get; init; }
 
     /// <summary>How fast the pointer moves on this tablet, as a multiple of the PC's movement.</summary>
     public double PointerSpeed { get; init; } = 1.0;
@@ -52,7 +52,7 @@ public sealed record DeviceProfile
     public OrientationCalibration? Active => Landscape ? LandscapeCalibration : PortraitCalibration;
 
     /// <summary>A profile from what the tablet reported over Bluetooth: calibrated from the model table when it is known.</summary>
-    public static DeviceProfile FromTablet(string deviceId, TabletInfo? info, double awayFactor = 2.4)
+    public static DeviceProfile FromTablet(string deviceId, TabletInfo? info, double awayFactor = TabletModels.CurveHeadroom)
     {
         var model = TabletModels.Find(info?.ModelIdentifier);
         return new DeviceProfile
@@ -62,6 +62,7 @@ public sealed record DeviceProfile
             ModelIdentifier = info?.ModelIdentifier,
             ModelName = model?.Name,
             Source = model is null ? CalibrationSource.None : CalibrationSource.Model,
+            GainCurve = model is null ? null : TabletModels.DefaultGainCurve,
             LandscapeCalibration = model is null ? null : From(model.Calibration(landscape: true), awayFactor),
             PortraitCalibration = model is null ? null : From(model.Calibration(landscape: false), awayFactor),
             LastSeen = DateTimeOffset.Now
@@ -76,13 +77,13 @@ public sealed record DeviceProfile
     {
         // With the curve the model follows the acceleration, so only a little headroom is left
         // for moves faster than the fastest measured.
-        const double headroom = 1.15;
+        const double headroom = TabletModels.CurveHeadroom;
         var measured = new OrientationCalibration(result.Width, result.Height, headroom);
         var turned = new OrientationCalibration(result.Height, result.Width, headroom);
         return this with
         {
             Source = CalibrationSource.Safari,
-            GainCurve = Edge.GainCurve.FromGains(result.HorizontalCurve.Select(g => (g.CountsPerReport, g.PointsPerCount))).Points,
+            GainCurve = new GainPoints(Edge.GainCurve.FromGains(result.HorizontalCurve.Select(g => (g.CountsPerReport, g.PointsPerCount))).Points),
             Landscape = result.Landscape,
             LandscapeCalibration = result.Landscape ? measured : turned,
             PortraitCalibration = result.Landscape ? turned : measured
@@ -90,13 +91,17 @@ public sealed record DeviceProfile
     }
 
     /// <summary>Copies the active calibration into the edge settings; unchanged when there is none.</summary>
+    /// <remarks>
+    /// A tablet calibrated before curves existed gets the default curve, and with it only the
+    /// headroom instead of its old worst-case factor.
+    /// </remarks>
     public EdgeOptions ApplyTo(EdgeOptions options) => Active is { } c
         ? options with
         {
             CalibrationWidth = c.Width,
             CalibrationHeight = c.Height,
-            AwayFactor = c.AwayFactor,
-            GainCurve = GainCurve,
+            AwayFactor = GainCurve is null ? TabletModels.CurveHeadroom : c.AwayFactor,
+            GainCurve = GainCurve ?? TabletModels.DefaultGainCurve,
             PointerSpeed = PointerSpeed
         }
         : options;

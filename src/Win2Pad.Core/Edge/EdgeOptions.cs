@@ -78,7 +78,7 @@ public sealed record EdgeOptions
     /// The tablet's measured pointer acceleration, from the Safari calibration. With it the
     /// pointer model follows fast moves; without it, it assumes <see cref="AwayFactor"/> for all.
     /// </summary>
-    public IReadOnlyList<GainPoint>? GainCurve { get; init; }
+    public GainPoints? GainCurve { get; init; }
 
     /// <summary>Multiplies the movement sent to the tablet: above 1 the pointer moves faster there.</summary>
     public double PointerSpeed { get; init; } = 1.0;
@@ -99,18 +99,34 @@ public sealed record EdgeOptions
     /// <summary>Counts per report towards the edge that count as heading for it quickly.</summary>
     public int LeadMinSpeed { get; init; } = 4;
 
+    /// <summary>
+    /// How far into the tablet the pointer must go after entering before it can come back:
+    /// a share of the screen, larger for the top and bottom where the pointer enters next to an
+    /// edge the user also moves along.
+    /// </summary>
+    public double VerticalReturnArm { get; init; } = 0.08;
+    public double SideReturnArm { get; init; } = 0.03;
+
+    /// <summary>
+    /// The user's choice of how firm the push to come back is, multiplying the return margins:
+    /// below 1 lighter, above 1 firmer.
+    /// </summary>
+    public double ReturnPushScale { get; init; } = 1.0;
+
     /// <summary>The pointer model these settings describe, for a tablet on <paramref name="side"/>.</summary>
     public PointerModel CreateModel(TabletSide side)
     {
         var vertical = side is TabletSide.Top or TabletSide.Bottom;
         var curve = GainCurve is { Count: > 0 } points ? new GainCurve(points) : null;
+        var push = Math.Clamp(ReturnPushScale, 0.25, 4);
         return new PointerModel(Calibration, side,
-            returnMargin: vertical ? VerticalReturnMargin : ReturnMargin,
+            returnMargin: (vertical ? VerticalReturnMargin : ReturnMargin) * push,
             awayFactor: AwayFactor,
             gainCurve: curve,
             returnLead: vertical ? VerticalReturnLead : 0,
             leadMinSpeed: LeadMinSpeed,
-            earlyReturn: vertical);
+            earlyReturn: vertical,
+            returnArmDistance: vertical ? VerticalReturnArm : SideReturnArm);
     }
 
     /// <summary>Tablet screen size in HID counts at slow speed. Zero means not calibrated.</summary>

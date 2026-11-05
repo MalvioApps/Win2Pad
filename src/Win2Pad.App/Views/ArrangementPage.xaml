@@ -60,6 +60,24 @@
       </StackPanel>
     </ui:CardControl>
 
+    <ui:CardControl Icon="{ui:SymbolIcon HandRight24}" Margin="0,0,0,12">
+      <ui:CardControl.Header>
+        <StackPanel>
+          <ui:TextBlock Text="Push to come back" FontTypography="BodyStrong" />
+          <ui:TextBlock FontTypography="Caption" TextWrapping="Wrap"
+                        Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                        Text="How far past the iPad's edge you push to return to the PC. Firmer avoids coming back by accident; lighter is quicker." />
+        </StackPanel>
+      </ui:CardControl.Header>
+      <StackPanel Orientation="Horizontal">
+        <ui:TextBlock Text="Light" VerticalAlignment="Center" Margin="0,0,8,0" Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+        <Slider x:Name="PushSlider" Width="180" Minimum="0.5" Maximum="3" SmallChange="0.25" LargeChange="0.5"
+                TickFrequency="0.25" IsSnapToTickEnabled="True" VerticalAlignment="Center"
+                PreviewMouseLeftButtonUp="OnPushChanged" KeyUp="OnPushChanged" />
+        <ui:TextBlock Text="Firm" VerticalAlignment="Center" Margin="8,0,0,0" Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+      </StackPanel>
+    </ui:CardControl>
+
     <StackPanel Orientation="Horizontal">
       <ui:Button Content="Reset" Icon="{ui:SymbolIcon ArrowReset24}" Click="OnReset" Margin="0,0,8,0" />
       <ui:Button Content="Refresh screens" Icon="{ui:SymbolIcon ArrowSync24}" Click="OnRefresh" />

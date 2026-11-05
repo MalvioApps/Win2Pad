@@ -44,9 +44,14 @@ public partial class ArrangementPage : Page
             _saveDelay.Stop();
             if (_placement is not null) Save(_placement);
         };
-        Loaded += (_, _) => Reload();
+        Loaded += (_, _) =>
+        {
+            PeripheralService.Instance.PropertyChanged += OnServiceChanged;
+            Reload();
+        };
         Unloaded += (_, _) =>
         {
+            PeripheralService.Instance.PropertyChanged -= OnServiceChanged;
             // Leaving the page must not lose a slider change still waiting to be saved.
             if (!_saveDelay.IsEnabled) return;
             _saveDelay.Stop();
@@ -55,6 +60,18 @@ public partial class ArrangementPage : Page
     }
 
     private IReadOnlyList<ScreenRect> Bounds => _monitors.Select(m => m.Bounds).ToList();
+
+    /// <summary>The iPad connecting (or turning round) changes its size and name on the board.</summary>
+    private void OnServiceChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName != nameof(PeripheralService.ActiveProfile)) return;
+        Dispatcher.BeginInvoke(() =>
+        {
+            // Never under the user's hand: a drag or a pending slider change finishes first.
+            if (_tabletVisual is { IsMouseCaptured: true } || _saveDelay.IsEnabled) return;
+            Reload();
+        });
+    }
 
     private void Reload()
     {

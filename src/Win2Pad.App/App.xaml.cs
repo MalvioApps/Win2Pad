@@ -69,7 +69,7 @@ public partial class App : Application
         };
 
         var startHidden = e.Args.Contains(StartupService.TrayArgument, StringComparer.OrdinalIgnoreCase);
-        MainWindow = new MainWindow();
+        MainWindow = new MainWindow(Win2Pad.App.MainWindow.PageFromArgs(e.Args));
         if (!startHidden) MainWindow.Show();
 
         _ = CheckForUpdatesLaterAsync();

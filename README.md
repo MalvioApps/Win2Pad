@@ -1,77 +1,165 @@
-# Win2Pad
+<p align="center">
+  <img src="docs/images/icon.png" width="112" alt="Win2Pad icon">
+</p>
 
-**Use your Windows keyboard and mouse on your iPad.** Push the pointer past the edge of your
-screen and it carries on onto the tablet, like Universal Control does between a Mac and an iPad.
+<h1 align="center">Win2Pad</h1>
 
-Win2Pad is software only. Your PC's own Bluetooth presents itself to the iPad as a standard
-Bluetooth keyboard and mouse, so there is nothing to install on the iPad and no extra hardware.
+<p align="center">
+  <strong>Use your Windows keyboard and mouse on your iPad.</strong><br>
+  Push the pointer past the edge of your screen and it carries on onto the iPad, like Universal Control does between a Mac and an iPad.
+</p>
 
-> Status: early development (0.1). Everything below works; expect rough edges.
+<p align="center">
+  <a href="https://github.com/MalvioApps/Win2Pad/releases/latest"><img src="https://img.shields.io/github/v/release/MalvioApps/Win2Pad?label=download" alt="Latest release"></a>
+  <a href="https://github.com/MalvioApps/Win2Pad/actions/workflows/ci.yml"><img src="https://github.com/MalvioApps/Win2Pad/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/github/license/MalvioApps/Win2Pad" alt="MIT licence"></a>
+</p>
 
-## Install
+<p align="center">
+  English · <a href="README.es.md">Español</a>
+</p>
 
-Download `Win2Pad-win-Setup.exe` from the [latest release](https://github.com/MalvioApps/Win2Pad/releases/latest)
-and run it. Win2Pad installs for your user only (no administrator rights), adds itself to the
-Start menu and updates itself from GitHub releases. Windows may warn that the installer is not
-signed; choose *More info → Run anyway*.
+<p align="center">
+  <img src="docs/images/screens.png" width="720" alt="The Screens page: two monitors with the iPad placed below the first one">
+</p>
 
-Then follow the checklist on the Status page: start Win2Pad, pair the iPad from its
-Settings → Bluetooth, and push the pointer against the screen edge.
-
-## Requirements
-
-- Windows 10 2004 or later, or Windows 11.
-- A Bluetooth adapter that supports the LE peripheral role. Most built-in adapters from the last
-  few years do.
-- iPadOS 13.4 or later (pointer support). Android tablets should work too but are not tested yet.
-
-## How it works
-
-1. Win2Pad advertises a Bluetooth LE HID keyboard and mouse (HID over GATT) using the Windows
-   in-box stack.
-2. You pair the iPad with it once, from the iPad's Bluetooth settings.
-3. Win2Pad captures the Windows keyboard and mouse with low-level hooks and, while the tablet is
-   active, sends the input as HID reports instead of letting Windows handle it.
-4. Keys are sent by physical position, so the iPad applies its own keyboard layout. Set the
-   hardware keyboard layout on the iPad to match your keyboard.
-5. Push the pointer against the screen edge on the iPad's side to carry on onto it, and past the
-   iPad's edge facing the PC to come back at the same height.
-
-## Calibration
-
-A Bluetooth mouse only sends relative movement, so Win2Pad estimates where the iPad pointer is.
-For that it needs the iPad's screen size in mouse counts:
-
-- **Automatic.** When the iPad connects, Win2Pad reads its model over Bluetooth (for example
-  `iPad7,12`), looks up its screen size and calibrates from it. Nothing to do.
-- **Fine-tune with Safari (optional).** Settings → Fine-tune with Safari shows a QR code. Open
-  the page on the iPad and Win2Pad moves the pointer by itself, measuring the screen and the
-  pointer acceleration. Use it if you changed the iPad's pointer tracking speed, or for the most
-  precise switching.
-
-Each iPad is remembered with its calibration for both orientations.
+Win2Pad is software only. Your PC's own Bluetooth presents itself to the iPad as an ordinary
+Bluetooth keyboard and mouse, so there is **nothing to install on the iPad** and no extra
+hardware to buy.
 
 ## Features
 
-- **Edge switching** across any side of any monitor, arranged visually like Windows' display
-  settings, with the shared stretch of edge adjustable up to every screen on that side.
-- **Automatic calibration** from the iPad model read over Bluetooth, with an optional Safari
-  fine-tune that also measures the pointer acceleration.
-- **Remembered devices** with their own calibration, orientation and pointer speed.
-- **Status at a glance**: the tray icon and an optional floating label change colour with where
-  the input is.
-- **Keyboard layouts**: keys go by physical position, AltGr works.
-- **Automatic updates** from GitHub releases; starts with Windows if you want.
+- **Move across the screen edge** onto the iPad and back, at the matching height. Place the iPad
+  against any side of any monitor, like Windows' display settings, and choose how much of the
+  edge leads to it.
+- **Sets itself up.** Win2Pad reads the iPad's model over Bluetooth and calibrates from its
+  screen size. An optional fine-tune with Safari measures your iPad exactly, pointer
+  acceleration included.
+- **Remembers each iPad** with its own calibration, orientation and pointer speed.
+- **Always know where your input is**: the tray icon, and an optional floating label, change
+  colour.
+- **Any keyboard layout.** Keys are sent by position, so Spanish, German, French… work, AltGr
+  included.
+- **Updates itself** and can start with Windows.
 
-## Releasing
+## Requirements
 
-Push a version tag; the `release` workflow tests, builds the Velopack installer and publishes
-the GitHub release that installed copies update from:
+- Windows 10 version 2004 or later, or Windows 11.
+- A Bluetooth adapter that supports the *LE peripheral* role. Most built-in adapters of the
+  last few years do; Win2Pad tells you on its Home page if yours does not.
+- An iPad with iPadOS 13.4 or later (the first version with pointer support).
 
-```
-git tag v0.1.0
-git push origin v0.1.0
-```
+## Install
+
+1. Download **`Win2Pad-win-Setup.exe`** from the [latest release](https://github.com/MalvioApps/Win2Pad/releases/latest).
+2. Run it. Win2Pad installs for your user only (no administrator rights needed) and opens.
+3. Windows may say the installer is from an unknown publisher, because it is not signed yet.
+   Choose **More info → Run anyway**.
+
+Win2Pad updates itself from then on. To uninstall it, use *Settings → Apps* in Windows.
+
+## Getting started
+
+Win2Pad's **Home** page has a checklist that ticks itself as you go:
+
+<p align="center">
+  <img src="docs/images/home.png" width="640" alt="The Home page with the getting-started checklist">
+</p>
+
+1. **Start Win2Pad.** It makes your PC available as a Bluetooth keyboard and mouse.
+2. **Pair the iPad, once.** On the iPad, open *Settings → Bluetooth*, find your PC under
+   *Other Devices* and tap it. From then on it reconnects by itself.
+3. **Calibration happens by itself**: Win2Pad reads the iPad's model and knows its screen.
+4. **Place the iPad** in **Screens**, where it is on your desk (see below).
+5. **Push the pointer** against that edge of your screen: it continues on the iPad. Push past
+   the iPad's edge facing your PC to come back.
+
+Also set your keyboard's layout on the iPad: *Settings → General → Keyboard → Hardware Keyboard*.
+
+## Using Win2Pad
+
+### Screens
+
+Drag the iPad to any side of any monitor. It snaps to the side and to useful positions along it
+(flush, centred, between two screens), and a coloured line shows where the pointer crosses.
+**Quick placement** puts it centred against a side of the main screen in one click. The
+**Shared edge** slider sets how much of the edge leads to the iPad, from its real size up to
+every screen side by side (100% per screen).
+
+### Devices
+
+<p align="center">
+  <img src="docs/images/devices.png" width="640" alt="The Devices page with one iPad">
+</p>
+
+Every iPad Win2Pad has seen, with:
+
+- **Name**: click it to rename.
+- **Orientation**: Bluetooth cannot tell how you hold the iPad, so tell Win2Pad here or from
+  the tray menu.
+- **Pointer speed**: how fast the pointer moves on that iPad.
+- **Fine-tune…**: precise calibration with Safari (see below).
+- **Forget…**: removes it, and optionally its Bluetooth pairing in Windows.
+
+### Fine-tune with Safari (optional)
+
+Use it if the pointer comes back at the wrong height, if you changed the pointer speed in the
+iPad's settings, or for the best precision. It takes about 20 seconds:
+
+1. In **Devices**, press **Fine-tune…** next to the iPad. A QR code appears.
+2. On the iPad, scan it with the Camera and open the page in Safari. The iPad and the PC must
+   be on the same Wi-Fi. If Windows asks about network access, allow it on private networks.
+3. Leave the page in front, don't touch the iPad, and press **Start**. Win2Pad moves the
+   pointer by itself and measures the screen and the pointer acceleration.
+
+### Where is my input?
+
+<p align="center">
+  <img src="docs/images/tray-states.png" width="480" alt="The tray icon in its four colours">
+  &nbsp;&nbsp;
+  <img src="docs/images/indicator.png" width="130" alt="The floating indicator">
+</p>
+
+The tray icon is **grey** when Win2Pad is off, **amber** while it waits for the iPad, **blue**
+when the iPad is connected and you are using the PC, and **green** while you control the iPad.
+The optional **floating indicator** (*Settings → Floating indicator*) shows the same on screen;
+drag it anywhere, right-click to hide it.
+
+### Shortcuts
+
+| Shortcut | What it does |
+|---|---|
+| `Ctrl` + `Alt` + `CapsLock` (or `Ctrl` + `D` + `C`) | Switch between the PC and the iPad without using the edge |
+| `Ctrl` + `Alt` + `Q` | Back to the PC, whatever the iPad is doing |
+| Shake the mouse | Switch, if enabled in *Keyboard and mouse* |
+
+## Troubleshooting
+
+| Problem | What to do |
+|---|---|
+| The iPad says it is connected but nothing moves | On the iPad, *Settings → Bluetooth → (your PC) → Forget This Device*, then pair again while Win2Pad is running. |
+| Symbols or letters like `ñ` come out wrong | Set the hardware keyboard layout on the iPad: *Settings → General → Keyboard → Hardware Keyboard*. |
+| Coming back takes too much pushing, or notifications open | Check that **Screens** matches your desk, then **Fine-tune…** the iPad in **Devices**. |
+| The pointer comes back at the wrong height | **Fine-tune…** the iPad in **Devices**. |
+| It enters the iPad when you don't want it to | Turn off *Move to the iPad through the screen edge* in **Screens** and use the shortcut instead. |
+| The Home page says Bluetooth cannot advertise | Your adapter does not support the LE peripheral role; a small USB Bluetooth 5 adapter usually does. |
+
+Still stuck? **About → Report a problem** opens a bug report with your version, Windows and iPad
+model already filled in.
+
+## Privacy
+
+Win2Pad has no telemetry and no account. It goes online only to check GitHub for updates (you
+can turn that off in *Settings*), and the fine-tune page is served on your local network only
+while its window is open. Settings live in `%LOCALAPPDATA%\MalvioApps\Win2Pad`.
+
+## How it works
+
+Win2Pad uses the Windows Bluetooth stack to publish a standard Bluetooth LE keyboard and mouse
+(HID over GATT). While the iPad is active, it captures your keyboard and mouse with low-level
+hooks and sends them as HID reports instead of letting Windows handle them. A Bluetooth mouse
+only sends relative movement, so Win2Pad estimates where the iPad's pointer is from the
+calibration and the iPad's measured acceleration, to know when you push past its edge.
 
 ## Building
 
@@ -80,9 +168,19 @@ dotnet test Win2Pad.sln
 dotnet run --project src/Win2Pad.App
 ```
 
-Needs the .NET 9 SDK (see `global.json`) and the .NET 8 runtime. To build the installer
-locally, install `vpk` (`dotnet tool install -g vpk --version 1.2.161`) and follow the steps in
-`.github/workflows/release.yml`.
+Needs the .NET 9 SDK (see `global.json`) and the .NET 8 runtime. `--page screens` (or `home`,
+`devices`, `keyboard`, `settings`, `about`) opens the app on that page.
+
+## Releasing
+
+Push a version tag. The `release` workflow runs the tests, builds the installer with
+[Velopack](https://velopack.io) and publishes the GitHub release that installed copies update
+from:
+
+```
+git tag v0.1.0
+git push origin v0.1.0
+```
 
 ## Credits
 
@@ -94,4 +192,4 @@ iPad and iPadOS are trademarks of Apple Inc. Win2Pad is not affiliated with Appl
 
 ## License
 
-[MIT](LICENSE)
+[MIT](LICENSE) © MalvioApps

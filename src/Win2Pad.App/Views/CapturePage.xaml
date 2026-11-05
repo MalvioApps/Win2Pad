@@ -24,8 +24,8 @@
                   IsOpen="{Binding IsRedirecting}" />
 
       <ui:InfoBar x:Name="NoHostsBar" Severity="Informational" IsClosable="False" Margin="0,0,0,16"
-                  Title="No hosts yet"
-                  Message="Pair from the device you want to control, then wait for it to subscribe. On a Windows host, pick the entry shown as an input device rather than the audio one." />
+                  Title="No iPad connected yet"
+                  Message="Pair the iPad from its Settings → Bluetooth (tap this PC under Other Devices) and wait a few seconds for it to connect." />
 
       <ui:CardControl Icon="{ui:SymbolIcon Keyboard24}" Margin="0,0,0,16">
         <ui:CardControl.Header>

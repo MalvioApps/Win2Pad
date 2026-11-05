@@ -5,16 +5,19 @@
       Foreground="{DynamicResource TextFillColorPrimaryBrush}"
       Title="Settings">
 
+  <!-- General preferences only: screens, devices and the keyboard each have their own page. -->
   <StackPanel Margin="24,0,24,24">
 
     <ui:TextBlock Text="Settings" FontTypography="TitleLarge" Margin="0,0,0,4" />
-    <ui:TextBlock Text="Control how Win2Pad starts and what happens when the window is closed."
+    <ui:TextBlock Text="How Win2Pad starts, stays running and updates itself."
                   FontTypography="Body" Foreground="{DynamicResource TextFillColorSecondaryBrush}"
                   TextWrapping="Wrap" Margin="0,0,0,20" />
 
     <ui:InfoBar x:Name="DevBar" Severity="Informational" IsClosable="False" Margin="0,0,0,16"
                 Title="Auto-start unavailable"
-                Message="Run the published executable rather than 'dotnet run' to register auto-start." />
+                Message="Run the installed Win2Pad rather than a development build to register auto-start." />
+
+    <ui:TextBlock Text="Startup" FontTypography="BodyStrong" Margin="0,0,0,8" />
 
     <ui:CardControl Icon="{ui:SymbolIcon Power24}" Margin="0,0,0,8">
       <ui:CardControl.Header>
@@ -31,10 +34,10 @@
     <ui:CardControl Icon="{ui:SymbolIcon Play24}" Margin="0,0,0,8">
       <ui:CardControl.Header>
         <StackPanel>
-          <ui:TextBlock Text="Start the peripheral automatically" FontTypography="BodyStrong" />
+          <ui:TextBlock Text="Connect automatically" FontTypography="BodyStrong" />
           <ui:TextBlock FontTypography="Caption" TextWrapping="Wrap"
                         Foreground="{DynamicResource TextFillColorSecondaryBrush}"
-                        Text="Begins advertising as soon as the app launches." />
+                        Text="Makes this PC available to the iPad as soon as Win2Pad opens." />
         </StackPanel>
       </ui:CardControl.Header>
       <ui:ToggleSwitch IsChecked="{Binding StartPeripheralOnLaunch, Mode=TwoWay}" />
@@ -46,62 +49,13 @@
           <ui:TextBlock Text="Keep running when the window is closed" FontTypography="BodyStrong" />
           <ui:TextBlock FontTypography="Caption" TextWrapping="Wrap"
                         Foreground="{DynamicResource TextFillColorSecondaryBrush}"
-                        Text="Paired hosts reconnect to a peripheral that never restarted, so staying resident keeps them working." />
+                        Text="The iPad reconnects by itself to a Win2Pad that stays in the notification area." />
         </StackPanel>
       </ui:CardControl.Header>
       <ui:ToggleSwitch IsChecked="{Binding CloseToTray, Mode=TwoWay}" />
     </ui:CardControl>
 
-    <ui:TextBlock Text="Edge switching" FontTypography="BodyStrong" Margin="0,12,0,8" />
-
-    <ui:CardControl Icon="{ui:SymbolIcon ArrowSwap24}" Margin="0,0,0,8">
-      <ui:CardControl.Header>
-        <StackPanel>
-          <ui:TextBlock Text="Move to the tablet through the screen edge" FontTypography="BodyStrong" />
-          <ui:TextBlock FontTypography="Caption" TextWrapping="Wrap"
-                        Foreground="{DynamicResource TextFillColorSecondaryBrush}"
-                        Text="Push the pointer against the edge on the tablet's side to carry on onto it; push past the tablet's edge facing the PC to come back." />
-        </StackPanel>
-      </ui:CardControl.Header>
-      <ui:ToggleSwitch x:Name="EdgeToggle" Click="OnEdgeChanged" />
-    </ui:CardControl>
-
-    <ui:CardControl Icon="{ui:SymbolIcon Tablet24}" Margin="0,0,0,8">
-      <ui:CardControl.Header>
-        <StackPanel>
-          <ui:TextBlock Text="Tablet position" FontTypography="BodyStrong" />
-          <ui:TextBlock FontTypography="Caption" TextWrapping="Wrap"
-                        Foreground="{DynamicResource TextFillColorSecondaryBrush}"
-                        Text="Which side of your screens the tablet is on. Any monitor edge on that side with no other monitor beyond it leads to the tablet." />
-        </StackPanel>
-      </ui:CardControl.Header>
-      <ComboBox x:Name="SideCombo" MinWidth="140" SelectionChanged="OnEdgeChanged">
-        <ComboBoxItem Content="Right" Tag="Right" />
-        <ComboBoxItem Content="Left" Tag="Left" />
-        <ComboBoxItem Content="Above" Tag="Top" />
-        <ComboBoxItem Content="Below" Tag="Bottom" />
-      </ComboBox>
-    </ui:CardControl>
-
-    <ui:CardControl Icon="{ui:SymbolIcon Ruler24}" Margin="0,0,0,8">
-      <ui:CardControl.Header>
-        <StackPanel>
-          <ui:TextBlock x:Name="DeviceTitle" Text="No tablet connected" FontTypography="BodyStrong" />
-          <ui:TextBlock x:Name="DeviceDetail" FontTypography="Caption" TextWrapping="Wrap"
-                        Foreground="{DynamicResource TextFillColorSecondaryBrush}"
-                        Text="Connect the iPad over Bluetooth: Win2Pad reads its model and calibrates itself." />
-        </StackPanel>
-      </ui:CardControl.Header>
-      <StackPanel Orientation="Horizontal">
-        <ComboBox x:Name="OrientationCombo" MinWidth="130" Margin="0,0,8,0" SelectionChanged="OnOrientationChanged">
-          <ComboBoxItem Content="Landscape" Tag="landscape" />
-          <ComboBoxItem Content="Portrait" Tag="portrait" />
-        </ComboBox>
-        <ui:Button Content="Fine-tune with Safari…" Click="OnFineTune" />
-      </StackPanel>
-    </ui:CardControl>
-
-    <ui:TextBlock Text="Other" FontTypography="BodyStrong" Margin="0,12,0,8" />
+    <ui:TextBlock Text="Appearance" FontTypography="BodyStrong" Margin="0,12,0,8" />
 
     <ui:CardControl Icon="{ui:SymbolIcon PictureInPicture24}" Margin="0,0,0,8">
       <ui:CardControl.Header>
@@ -109,22 +63,10 @@
           <ui:TextBlock Text="Floating indicator" FontTypography="BodyStrong" />
           <ui:TextBlock FontTypography="Caption" TextWrapping="Wrap"
                         Foreground="{DynamicResource TextFillColorSecondaryBrush}"
-                        Text="A small always-on-top label showing whether the input is on this PC or the tablet. Drag it anywhere; right-click to hide it." />
+                        Text="A small always-on-top label showing whether the input is on this PC or the iPad. Drag it anywhere; right-click to hide it." />
         </StackPanel>
       </ui:CardControl.Header>
       <ui:ToggleSwitch IsChecked="{Binding ShowIndicator, Mode=TwoWay}" />
-    </ui:CardControl>
-
-    <ui:CardControl Icon="{ui:SymbolIcon Cursor24}" Margin="0,0,0,8">
-      <ui:CardControl.Header>
-        <StackPanel>
-          <ui:TextBlock Text="Shake the pointer to switch target" FontTypography="BodyStrong" />
-          <ui:TextBlock FontTypography="Caption" TextWrapping="Wrap"
-                        Foreground="{DynamicResource TextFillColorSecondaryBrush}"
-                        Text="Move the mouse rapidly back and forth to cycle between this PC and the paired hosts. Ctrl+Alt+CapsLock always works too." />
-        </StackPanel>
-      </ui:CardControl.Header>
-      <ui:ToggleSwitch x:Name="SwitchGestureToggle" Click="OnSwitchGestureChanged" />
     </ui:CardControl>
 
     <ui:TextBlock Text="Updates" FontTypography="BodyStrong" Margin="0,12,0,8" />
@@ -156,13 +98,13 @@
       <ui:ToggleSwitch IsChecked="{Binding CheckForUpdates, Mode=TwoWay}" />
     </ui:CardControl>
 
-    <ui:CardControl Icon="{ui:SymbolIcon ArrowExit20}">
+    <ui:CardControl Icon="{ui:SymbolIcon ArrowExit20}" Margin="0,12,0,0">
       <ui:CardControl.Header>
         <StackPanel>
           <ui:TextBlock Text="Exit Win2Pad" FontTypography="BodyStrong" />
           <ui:TextBlock FontTypography="Caption" TextWrapping="Wrap"
                         Foreground="{DynamicResource TextFillColorSecondaryBrush}"
-                        Text="Stops advertising and removes the tray icon. Hosts will need to reconnect." />
+                        Text="Closes Win2Pad completely; the iPad loses the keyboard and mouse until it starts again." />
         </StackPanel>
       </ui:CardControl.Header>
       <ui:Button Content="Exit" Click="OnExit" />

@@ -4,7 +4,7 @@
       xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
       xmlns:conv="clr-namespace:Win2Pad.App.Converters"
       Foreground="{DynamicResource TextFillColorPrimaryBrush}"
-      Title="Status">
+      Title="Home">
 
   <Page.Resources>
     <conv:BoolToVisibilityConverter x:Key="BoolToVisibility" />
@@ -16,14 +16,14 @@
        scroller swallows the wheel without being able to scroll. -->
   <StackPanel Margin="24,0,24,24">
 
-      <ui:TextBlock Text="Status" FontTypography="TitleLarge" Margin="0,0,0,4" />
-      <ui:TextBlock Text="Publish the keyboard and mouse services, then pair from the device you want to control."
+      <ui:TextBlock Text="Home" FontTypography="TitleLarge" Margin="0,0,0,4" />
+      <ui:TextBlock Text="Win2Pad makes this PC a Bluetooth keyboard and mouse for your iPad."
                     FontTypography="Body" Foreground="{DynamicResource TextFillColorSecondaryBrush}"
                     TextWrapping="Wrap" Margin="0,0,0,20" />
 
       <ui:Card x:Name="GetStarted" Margin="0,0,0,16" Padding="20,16">
         <StackPanel>
-          <ui:TextBlock x:Name="GetStartedTitle" Text="Get started" FontTypography="Subtitle" Margin="0,0,0,10" />
+          <ui:TextBlock x:Name="GetStartedTitle" Text="Get started" FontTypography="Subtitle" Margin="0,0,0,10" TextWrapping="Wrap" />
           <StackPanel x:Name="Steps" />
         </StackPanel>
       </ui:Card>

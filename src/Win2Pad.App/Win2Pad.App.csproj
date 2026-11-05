@@ -39,6 +39,7 @@
   <!-- Also a resource, so the title bar and tray can pick a size-appropriate frame at runtime. -->
   <ItemGroup>
     <Resource Include="Assets\win2pad.ico" />
+    <Resource Include="Assets\win2pad.png" />
   </ItemGroup>
 
   <!-- WinForms is here only for the tray icon; its implicit usings collide with WPF on

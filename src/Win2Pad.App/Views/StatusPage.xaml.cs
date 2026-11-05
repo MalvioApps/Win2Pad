@@ -61,9 +61,9 @@ public partial class StatusPage : Page
                 "On the iPad, open Settings → Bluetooth and tap this PC under Other Devices. Only needed once."),
             (profile?.Active is not null, "Calibrate",
                 profile is null ? "Happens by itself when the iPad connects: Win2Pad reads its model."
-                : $"{profile.DisplayName} could not be recognised. Fine-tune it with Safari in Settings."),
+                : $"{profile.DisplayName} could not be recognised. Fine-tune it with Safari in Devices."),
             (options.Placement is not null, "Arrange",
-                $"Optional: in Arrangement, drag the iPad to where it is on your desk. Now any free {side} edge leads to it."),
+                $"Optional: in Screens, place the iPad where it is on your desk. Now any free {side} edge leads to it."),
         ];
 
         var allDone = steps.Take(3).All(s => s.Done);

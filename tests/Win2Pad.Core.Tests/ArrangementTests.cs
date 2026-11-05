@@ -14,16 +14,38 @@ public sealed class ArrangementTests
     [Fact]
     public void Dropped_beside_a_monitor_it_snaps_to_that_side_at_the_same_height()
     {
-        var placement = Arrangement.Snap([Main], Dropped(2000, 150));
-        Assert.Equal(new TabletPlacement(Main, TabletSide.Right, 150, H), placement);
+        // Away from the magnets (top 0, centre 135, bottom 270): it stays at the height dropped.
+        var placement = Arrangement.Snap([Main], Dropped(2000, 200));
+        Assert.Equal(new TabletPlacement(Main, TabletSide.Right, 200, H), placement);
+    }
+
+    [Theory]
+    [InlineData(30, 0)]       // near the top: flush with it
+    [InlineData(160, 135)]    // near the middle: centred ((1080 - 810) / 2)
+    [InlineData(250, 270)]    // near the bottom: flush with it (1080 - 810)
+    [InlineData(70, 70)]      // between magnets: stays where dropped
+    public void Dropped_near_an_aligned_position_it_is_pulled_onto_it(int droppedTop, int expectedOffset)
+    {
+        var placement = Arrangement.Snap([Main], Dropped(2000, droppedTop))!;
+        Assert.Equal(expectedOffset, placement.Offset);
+    }
+
+    [Fact]
+    public void Below_two_screens_it_can_centre_on_both()
+    {
+        // A tablet as long as one screen, dropped near the join of two.
+        var dropped = new ScreenRect(1000, 1200, 2920, 2640);
+        var placement = Arrangement.Snap([Main, Second], dropped)!;
+        Assert.Equal(TabletSide.Bottom, placement.Side);
+        Assert.Equal(960, placement.Offset); // centred on the 3840-wide run
     }
 
     [Fact]
     public void Dropped_above_it_snaps_on_top()
     {
-        var placement = Arrangement.Snap([Main], Dropped(400, -900));
+        var placement = Arrangement.Snap([Main], Dropped(250, -900));
         Assert.Equal(TabletSide.Top, placement!.Side);
-        Assert.Equal(400, placement.Offset);
+        Assert.Equal(250, placement.Offset);
         Assert.Equal(W, placement.Length);
     }
 

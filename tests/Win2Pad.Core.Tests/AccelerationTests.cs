@@ -80,12 +80,39 @@ public sealed class AccelerationTests
     }
 
     [Fact]
+    public void Without_a_curve_the_top_edge_errs_towards_returning_early()
+    {
+        // Tablet below the PC, acceleration unknown (factor 6 from an old fine-tune).
+        var model = new PointerModel(Cal, TabletSide.Bottom, returnMargin: 0.01, awayFactor: 6,
+            returnLead: 0.05, leadMinSpeed: 4, earlyReturn: true);
+        model.Enter(0.5);                        // y = 20
+        model.Move(0, 600, 1.0);                 // away: counted once, y = 620
+
+        // Back up at a steady pace: counted 2.5x, so the model reaches the lead zone after
+        // ~230 counts, long before the 600 it took to go down. Early, never late.
+        var sent = 0;
+        while (!model.Move(0, -10, 1.1 + sent * 0.0001)) sent += 10;
+        Assert.InRange(sent, 200, 260);
+    }
+
+    [Fact]
+    public void Beside_the_pc_it_still_errs_towards_returning_late()
+    {
+        var model = new PointerModel(Cal, TabletSide.Right, returnMargin: 0.01, awayFactor: 3);
+        Assert.False(model.EarlyReturn);
+        model.Enter(0.5);                        // x = 40
+        model.Move(100, 0, 1.0);                 // away: counted 3x, x = 340
+        Assert.False(model.Move(-200, 0, 1.1));  // the real pointer may already be at the edge
+    }
+
+    [Fact]
     public void Top_and_bottom_returns_use_the_vertical_settings()
     {
         var options = new EdgeOptions { CalibrationWidth = 2000, CalibrationHeight = 1000 };
         var below = options.CreateModel(TabletSide.Bottom);
         Assert.Equal(options.VerticalReturnLead, below.ReturnLead);
         Assert.Equal(options.VerticalReturnMargin, below.ReturnMargin);
+        Assert.True(below.EarlyReturn);
 
         var beside = options.CreateModel(TabletSide.Right);
         Assert.Equal(0, beside.ReturnLead);

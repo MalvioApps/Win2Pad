@@ -60,6 +60,7 @@ public partial class ArrangementPage : Page
     {
         _monitors = Win32Screens.All();
         _options = EdgeOptions.Load();
+        EdgeToggle.IsChecked = _options.Enabled;
 
         var calibration = PeripheralService.Instance.ActiveProfile?.Active?.Pointer
                           ?? (_options.Calibration.IsValid ? _options.Calibration : new PointerCalibration(3349, 2512));
@@ -90,14 +91,17 @@ public partial class ArrangementPage : Page
         Arrangement.RectFor(placement,
             (int)Math.Round(_natural.Width * placement.Scale), (int)Math.Round(_natural.Height * placement.Scale));
 
-    /// <summary>Before any placement: beside the primary monitor on the side chosen in Settings, centred.</summary>
-    private ScreenRect DefaultTablet()
+    /// <summary>Before any placement: beside the primary monitor on the last side used, centred.</summary>
+    private ScreenRect DefaultTablet() => BesidePrimary(_options.Side);
+
+    /// <summary>The tablet centred against one side of the primary monitor, at its real size.</summary>
+    private ScreenRect BesidePrimary(TabletSide side)
     {
         var primary = _monitors.FirstOrDefault().Bounds;
         var (w, h) = _natural;
         var cx = (primary.Left + primary.Right - w) / 2;
         var cy = (primary.Top + primary.Bottom - h) / 2;
-        ScreenRect dropped = _options.Side switch
+        ScreenRect dropped = side switch
         {
             TabletSide.Left => new(primary.Left - w, cy, primary.Left, cy + h),
             TabletSide.Top => new(cx, primary.Top - h, cx + w, primary.Top),
@@ -180,7 +184,7 @@ public partial class ArrangementPage : Page
         Board.Children.Add(_tabletVisual);
 
         Summary.Text = _placement is null
-            ? $"Not placed yet: drag the iPad to set exactly where the pointer crosses. Until then, any free edge on the {_options.Side.ToString().ToLowerInvariant()} leads to it."
+            ? $"Not placed yet: drag the iPad or use a quick placement. Until then, any free edge on the {_options.Side.ToString().ToLowerInvariant()} leads to it."
             : Describe(_placement);
     }
 
@@ -322,6 +326,36 @@ public partial class ArrangementPage : Page
         if (updated.TrySave(null, out var error)) return true;
         ShowHint(InfoBarSeverity.Error, $"Could not save the arrangement: {error}");
         return false;
+    }
+
+    /// <summary>One click: the iPad centred against a side of the main screen, at its real size.</summary>
+    private void OnPreset(object sender, RoutedEventArgs e)
+    {
+        if (sender is not FrameworkElement { Tag: string tag } || !Enum.TryParse<TabletSide>(tag, out var side)) return;
+        _saveDelay.Stop();
+        var rect = BesidePrimary(side);
+        if (Arrangement.Snap(Bounds, rect) is not { } snapped) return;
+        var placement = snapped with { Scale = (double)snapped.Length / NaturalAlong(snapped.Side) };
+        if (!Save(placement)) return;
+        _options = EdgeOptions.Load();
+        _placement = placement;
+        _tablet = TabletRect(placement);
+        Draw();
+        RefreshSlider();
+    }
+
+    private void OnEdgeToggle(object sender, RoutedEventArgs e)
+    {
+        var updated = EdgeOptions.Load() with { Enabled = EdgeToggle.IsChecked == true };
+        if (!updated.TrySave(null, out var error))
+        {
+            ShowHint(InfoBarSeverity.Error, $"Could not save: {error}");
+            EdgeToggle.IsChecked = !EdgeToggle.IsChecked;
+            return;
+        }
+        // Edge switching watches the pointer all the time, so capture must be running.
+        if (updated.Enabled && PeripheralService.Instance.IsRunning)
+            _ = PeripheralService.Instance.StartCaptureAsync(armEarly: true);
     }
 
     private void OnReset(object sender, RoutedEventArgs e)

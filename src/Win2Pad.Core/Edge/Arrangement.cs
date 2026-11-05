@@ -70,6 +70,43 @@ public static class Arrangement
                 bestDistance = distance;
             }
         }
+        return best is null ? null : Magnet(monitors, best, w, h);
+    }
+
+    /// <summary>How close to an aligned position, as a share of the monitor's edge, pulls the tablet onto it.</summary>
+    public const double MagnetShare = 0.06;
+
+    /// <summary>
+    /// Pulls a placement onto the nearest aligned position along its edge when it was dropped
+    /// close to one: flush with the start or end of its monitor, centred on it, or flush with the
+    /// start or end of the run of monitors on that line. Dropped further away, it stays put.
+    /// </summary>
+    public static TabletPlacement Magnet(IReadOnlyList<ScreenRect> monitors, TabletPlacement placement, int width, int height)
+    {
+        var start = placement.MonitorStart;
+        var end = placement.MonitorEnd;
+        var length = placement.Length;
+        var (spanStart, spanEnd) = LineSpan(monitors, placement);
+        int[] targets =
+        [
+            start, end - length, start + (end - start - length) / 2,
+            spanStart, spanEnd - length, spanStart + (spanEnd - spanStart - length) / 2
+        ];
+
+        var reach = (end - start) * MagnetShare;
+        var best = placement;
+        var bestDistance = reach;
+        foreach (var target in targets)
+        {
+            var distance = Math.Abs(target - placement.Offset);
+            if (distance > bestDistance) continue;
+            var candidate = placement with { Offset = target };
+            if (!candidate.Touches) continue;
+            var rect = RectFor(candidate, width, height);
+            if (monitors.Any(other => Intersects(rect, other))) continue;
+            best = candidate;
+            bestDistance = distance;
+        }
         return best;
     }
 

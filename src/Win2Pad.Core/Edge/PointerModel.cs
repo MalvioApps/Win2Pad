@@ -44,10 +44,17 @@ public sealed class PointerModel
     /// to open. Approaching slowly still reaches the edge.
     /// </param>
     /// <param name="leadMinSpeed">Counts per report towards the edge that count as moving quickly.</param>
+    /// <param name="earlyReturn">
+    /// Err towards returning early instead of late. Right for the tablet's top and bottom edges:
+    /// there the tablet opens notifications, Control Center, the Dock or the app switcher when the
+    /// pointer is pushed against the edge, so being pulled back a little early is the lesser evil.
+    /// Moves towards the edge then count up to <see cref="TowardFactor"/> times, moves away once.
+    /// </param>
     public PointerModel(PointerCalibration calibration, TabletSide side, double returnMargin = 0.04,
         double awayFactor = 2.4, double overshootResetSeconds = 0.4, double entryInset = 0.02,
-        GainCurve? gainCurve = null, double returnLead = 0, int leadMinSpeed = 4)
+        GainCurve? gainCurve = null, double returnLead = 0, int leadMinSpeed = 4, bool earlyReturn = false)
     {
+        EarlyReturn = earlyReturn;
         GainCurve = gainCurve;
         ReturnLead = Math.Max(0, returnLead);
         LeadMinSpeed = leadMinSpeed;
@@ -69,6 +76,14 @@ public sealed class PointerModel
     public GainCurve? GainCurve { get; }
     public double ReturnLead { get; }
     public int LeadMinSpeed { get; }
+    public bool EarlyReturn { get; }
+
+    /// <summary>
+    /// With <see cref="EarlyReturn"/>: how many times moves towards the edge count. With a
+    /// measured curve the estimate is close, so a little headroom; without one, the acceleration
+    /// is unknown, so up to the assumed factor, capped so a slow approach is not cut short.
+    /// </summary>
+    public double TowardFactor => GainCurve is not null ? 1.15 : Math.Min(AwayFactor, 2.5);
 
     /// <summary>The early-return zone in counts.</summary>
     public int ReturnLeadCounts => (int)Math.Round(ReturnLead * ReturnExtent);
@@ -166,8 +181,11 @@ public sealed class PointerModel
     {
         int w = Calibration.Width, h = Calibration.Height;
         double ex = dx, ey = dy;
-        if (Side == TabletSide.Top && dy < 0 || Side == TabletSide.Bottom && dy > 0) ey *= AwayFactor;
-        else if (Side == TabletSide.Left && dx < 0 || Side == TabletSide.Right && dx > 0) ex *= AwayFactor;
+        var away = Side == TabletSide.Top && dy < 0 || Side == TabletSide.Bottom && dy > 0
+                   || Side == TabletSide.Left && dx < 0 || Side == TabletSide.Right && dx > 0;
+        var factor = EarlyReturn ? (away ? 1.0 : TowardFactor) : (away ? AwayFactor : 1.0);
+        if (Side is TabletSide.Top or TabletSide.Bottom) ey *= factor;
+        else ex *= factor;
 
         double nx = X + ex, ny = Y + ey;
         var beyond = Side switch

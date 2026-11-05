@@ -2,6 +2,7 @@ using System.Collections.Specialized;
 using System.Windows;
 using System.Windows.Controls;
 using Win2Pad.App.Services;
+using Win2Pad.Core;
 
 namespace Win2Pad.App.Views;
 
@@ -16,6 +17,20 @@ public partial class CapturePage : Page
         _service.Hosts.CollectionChanged += OnHostsChanged;
         Unloaded += (_, _) => _service.Hosts.CollectionChanged -= OnHostsChanged;
         UpdateEmptyState();
+        Loaded += (_, _) => SwitchGestureToggle.IsChecked = SwitchGestureOptions.Load(AppPaths.SwitchGestureConfig).Enabled;
+    }
+
+    private void OnSwitchGestureChanged(object sender, RoutedEventArgs e)
+    {
+        var enabled = SwitchGestureToggle.IsChecked == true;
+
+        // Reload before writing so tuning values edited by hand are not flattened by a toggle.
+        // A running capture session watches this file and picks the change up.
+        var updated = SwitchGestureOptions.Load(AppPaths.SwitchGestureConfig).WithEnabled(enabled);
+        if (updated.TrySave(AppPaths.SwitchGestureConfig, out _)) return;
+
+        // The setting did not persist, so the switch must not claim that it did.
+        SwitchGestureToggle.IsChecked = !enabled;
     }
 
     private void OnHostsChanged(object? sender, NotifyCollectionChangedEventArgs e) => UpdateEmptyState();

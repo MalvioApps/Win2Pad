@@ -1,0 +1,41 @@
+name: Bug report
+description: Something in Win2Pad does not work as expected.
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting. "Report a problem" in Win2Pad's About page fills in the first three fields for you.
+  - type: input
+    id: version
+    attributes:
+      label: Win2Pad version
+      placeholder: "0.1.0"
+    validations:
+      required: true
+  - type: input
+    id: windows
+    attributes:
+      label: Windows version
+  - type: input
+    id: ipad
+    attributes:
+      label: iPad model, orientation and calibration
+      placeholder: "iPad (7th generation) (iPad7,12), landscape, Model calibration"
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: What you did, what you expected and what happened instead.
+    validations:
+      required: true
+  - type: textarea
+    id: screens
+    attributes:
+      label: Screens
+      description: How many monitors, and where the iPad is placed in Screens (for example "below screen 1, 56%").
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs
+      description: Optional. About → Open the settings and logs folder; drag a file from logs here.

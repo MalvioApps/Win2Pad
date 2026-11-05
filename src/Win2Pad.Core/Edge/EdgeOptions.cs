@@ -101,7 +101,8 @@ public sealed record EdgeOptions
             awayFactor: AwayFactor,
             gainCurve: curve,
             returnLead: vertical ? VerticalReturnLead : 0,
-            leadMinSpeed: LeadMinSpeed);
+            leadMinSpeed: LeadMinSpeed,
+            earlyReturn: vertical);
     }
 
     /// <summary>Tablet screen size in HID counts at slow speed. Zero means not calibrated.</summary>

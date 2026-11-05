@@ -1,0 +1,60 @@
+<Page x:Class="Win2Pad.App.Views.AboutPage"
+      xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+      xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+      xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+      Foreground="{DynamicResource TextFillColorPrimaryBrush}"
+      Title="About">
+
+  <StackPanel Margin="24,0,24,24">
+    <StackPanel Orientation="Horizontal" Margin="0,0,0,20">
+      <Image Source="pack://application:,,,/Assets/win2pad.png" Width="64" Height="64" Margin="0,0,16,0" />
+      <StackPanel VerticalAlignment="Center">
+        <ui:TextBlock Text="Win2Pad" FontTypography="TitleLarge" />
+        <ui:TextBlock x:Name="VersionText" FontTypography="Body" Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+      </StackPanel>
+    </StackPanel>
+
+    <ui:TextBlock TextWrapping="Wrap" Margin="0,0,0,20" Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                  Text="Use your Windows keyboard and mouse on your iPad. Made by MalvioApps, building on windows-ble-hid and BlueShare." />
+
+    <ui:CardAction Icon="{ui:SymbolIcon Code24}" Click="OnRepository" Margin="0,0,0,8">
+      <StackPanel>
+        <ui:TextBlock Text="View on GitHub" FontTypography="BodyStrong" />
+        <ui:TextBlock Text="Source code, releases and what is coming next." FontTypography="Caption"
+                      Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+      </StackPanel>
+    </ui:CardAction>
+
+    <ui:CardAction Icon="{ui:SymbolIcon Star24}" Click="OnStar" Margin="0,0,0,8">
+      <StackPanel>
+        <ui:TextBlock Text="Give it a star" FontTypography="BodyStrong" />
+        <ui:TextBlock Text="If Win2Pad is useful to you, a star on GitHub helps others find it." FontTypography="Caption"
+                      Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+      </StackPanel>
+    </ui:CardAction>
+
+    <ui:CardAction Icon="{ui:SymbolIcon Bug24}" Click="OnReport" Margin="0,0,0,8">
+      <StackPanel>
+        <ui:TextBlock Text="Report a problem" FontTypography="BodyStrong" />
+        <ui:TextBlock Text="Opens a bug report with your version, Windows and iPad model already filled in." FontTypography="Caption"
+                      Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+      </StackPanel>
+    </ui:CardAction>
+
+    <ui:CardAction Icon="{ui:SymbolIcon DocumentText24}" Click="OnCredits" Margin="0,0,0,8">
+      <StackPanel>
+        <ui:TextBlock Text="Licences and credits" FontTypography="BodyStrong" />
+        <ui:TextBlock Text="MIT licence; the projects and libraries Win2Pad is built on." FontTypography="Caption"
+                      Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+      </StackPanel>
+    </ui:CardAction>
+
+    <ui:CardAction Icon="{ui:SymbolIcon FolderOpen24}" Click="OnLogs">
+      <StackPanel>
+        <ui:TextBlock Text="Open the settings and logs folder" FontTypography="BodyStrong" />
+        <ui:TextBlock Text="Useful to attach a log to a bug report." FontTypography="Caption"
+                      Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+      </StackPanel>
+    </ui:CardAction>
+  </StackPanel>
+</Page>

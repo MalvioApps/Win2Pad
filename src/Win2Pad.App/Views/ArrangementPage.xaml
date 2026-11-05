@@ -3,13 +3,33 @@
       xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
       xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
       Foreground="{DynamicResource TextFillColorPrimaryBrush}"
-      Title="Arrangement">
+      Title="Screens">
 
   <StackPanel Margin="24,0,24,24">
-    <ui:TextBlock Text="Arrangement" FontTypography="TitleLarge" Margin="0,0,0,4" />
+    <ui:TextBlock Text="Screens" FontTypography="TitleLarge" Margin="0,0,0,4" />
     <ui:TextBlock FontTypography="Body" Foreground="{DynamicResource TextFillColorSecondaryBrush}"
                   TextWrapping="Wrap" Margin="0,0,0,16"
                   Text="Drag the iPad to where it sits on your desk, against any side of any screen. The pointer crosses only where they touch, and comes back at the matching point." />
+
+    <ui:CardControl Icon="{ui:SymbolIcon ArrowSwap24}" Margin="0,0,0,8">
+      <ui:CardControl.Header>
+        <StackPanel>
+          <ui:TextBlock Text="Move to the iPad through the screen edge" FontTypography="BodyStrong" />
+          <ui:TextBlock FontTypography="Caption" TextWrapping="Wrap"
+                        Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                        Text="Off: switch only with Ctrl+Alt+CapsLock or the shake gesture." />
+        </StackPanel>
+      </ui:CardControl.Header>
+      <ui:ToggleSwitch x:Name="EdgeToggle" Click="OnEdgeToggle" />
+    </ui:CardControl>
+
+    <StackPanel Orientation="Horizontal" Margin="0,4,0,12">
+      <ui:TextBlock Text="Quick placement" VerticalAlignment="Center" Margin="0,0,12,0" FontTypography="BodyStrong" />
+      <ui:Button Content="Left" Tag="Left" Click="OnPreset" Margin="0,0,6,0" Icon="{ui:SymbolIcon ArrowLeft24}" />
+      <ui:Button Content="Right" Tag="Right" Click="OnPreset" Margin="0,0,6,0" Icon="{ui:SymbolIcon ArrowRight24}" />
+      <ui:Button Content="Above" Tag="Top" Click="OnPreset" Margin="0,0,6,0" Icon="{ui:SymbolIcon ArrowUp24}" />
+      <ui:Button Content="Below" Tag="Bottom" Click="OnPreset" Icon="{ui:SymbolIcon ArrowDown24}" />
+    </StackPanel>
 
     <ui:InfoBar x:Name="Hint" IsOpen="False" IsClosable="False" Severity="Informational" Margin="0,0,0,12" />
 

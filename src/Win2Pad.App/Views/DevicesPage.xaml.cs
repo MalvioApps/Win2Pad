@@ -68,6 +68,8 @@ public partial class DevicesPage : Page
             _ => "not calibrated"
         };
         var size = profile.Active is { } c ? $" · {c.Width}×{c.Height} counts" : "";
+        // Fine-tuned before the acceleration curve was stored: coming back assumes the worst case.
+        if (profile is { Source: CalibrationSource.Safari, GainCurve: null }) source += " (fine-tune again to measure its acceleration)";
         var detail = new TextBlock
         {
             FontTypography = FontTypography.Caption, TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 6, 0, 0),

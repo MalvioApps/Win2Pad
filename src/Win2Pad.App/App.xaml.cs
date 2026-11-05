@@ -128,9 +128,14 @@ public partial class App : Application
             new Views.CalibrationWindow { Owner = MainWindow }.ShowDialog();
         });
 
+        var report = new System.Windows.Forms.ToolStripMenuItem("Report a problem…");
+        report.Click += (_, _) => ProjectLinks.Open(ProjectLinks.NewIssue());
+
         menu.Items.Add(indicator);
         menu.Items.Add(portrait);
         menu.Items.Add(fineTune);
+        menu.Items.Add(new System.Windows.Forms.ToolStripSeparator());
+        menu.Items.Add(report);
         menu.Opening += (_, _) =>
         {
             var profile = PeripheralService.Instance.ActiveProfile;

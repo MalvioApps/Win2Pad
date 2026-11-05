@@ -163,7 +163,27 @@ public sealed class SwitchGestureOptionsTests
         }
         finally
         {
-            File.Delete(path);
+            DeleteWhenReleased(path);
+        }
+    }
+
+    /// <summary>
+    /// A file notification already being handled when the watcher is disposed can still be
+    /// reading the file for a moment, so cleanup waits for it instead of failing the test.
+    /// </summary>
+    private static void DeleteWhenReleased(string path)
+    {
+        for (var attempt = 0; ; attempt++)
+        {
+            try
+            {
+                File.Delete(path);
+                return;
+            }
+            catch (IOException) when (attempt < 20)
+            {
+                Thread.Sleep(25);
+            }
         }
     }
 

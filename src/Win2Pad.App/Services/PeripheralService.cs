@@ -84,7 +84,7 @@ public sealed class PeripheralService : INotifyPropertyChanged
             Profiles.Save(profile);
             Append(profile.ModelName is { } model
                 ? $"[device] {host.Display}: {model} ({profile.ModelIdentifier}), calibrated from its screen size"
-                : $"[device] {host.Display}: model '{info?.ModelIdentifier ?? "unknown"}' not recognised - calibrate it with Safari in Settings");
+                : $"[device] {host.Display}: model '{info?.ModelIdentifier ?? "unknown"}' not recognised - fine-tune it with Safari in Devices");
         }
 
         ApplyActiveProfile();
@@ -402,13 +402,13 @@ public sealed class PeripheralService : INotifyPropertyChanged
         var peripheral = _peripheral;
         var token = _captureCancellation.Token;
 
-        // Ctrl+Alt+Q ends the session, so the toggle has to follow the hotkey rather than the click.
+        // Ctrl+Alt+Q hands input back to this PC but keeps the session, which edge switching needs.
         _ = Task.Run(async () =>
         {
             try
             {
                 await CaptureSession.RunAsync(peripheral, Append, verbose: false, () => PointerIntervalMs,
-                    stopEndsSession: true, token);
+                    stopEndsSession: false, token);
             }
             catch (Exception ex)
             {

@@ -4,7 +4,7 @@
       xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
       xmlns:conv="clr-namespace:Win2Pad.App.Converters"
       Foreground="{DynamicResource TextFillColorPrimaryBrush}"
-      Title="Capture">
+      Title="Keyboard and mouse">
 
   <Page.Resources>
     <conv:InverseBoolConverter x:Key="InverseBool" />
@@ -13,14 +13,14 @@
 
   <StackPanel Margin="24,0,24,24">
 
-      <ui:TextBlock Text="Capture" FontTypography="TitleLarge" Margin="0,0,0,4" />
-      <ui:TextBlock Text="Redirect this PC's keyboard and mouse to a paired host."
+      <ui:TextBlock Text="Keyboard and mouse" FontTypography="TitleLarge" Margin="0,0,0,4" />
+      <ui:TextBlock Text="Send this PC's keyboard and mouse to the iPad by hand, and the shortcuts that switch between them."
                     FontTypography="Body" Foreground="{DynamicResource TextFillColorSecondaryBrush}"
                     TextWrapping="Wrap" Margin="0,0,0,20" />
 
       <ui:InfoBar Severity="Warning" IsClosable="False" Margin="0,0,0,16"
                   Title="Capture takes over this PC"
-                  Message="While input is going to a host, this window stops receiving it. Press Ctrl+Alt+Q to stop capture, or Ctrl+Alt+CapsLock to switch to the next target."
+                  Message="While input is going to the iPad, this window stops receiving it. Press Ctrl+Alt+Q to come back to this PC, or Ctrl+Alt+CapsLock to switch to the next target."
                   IsOpen="{Binding IsRedirecting}" />
 
       <ui:InfoBar x:Name="NoHostsBar" Severity="Informational" IsClosable="False" Margin="0,0,0,16"
@@ -103,12 +103,29 @@
         </StackPanel>
       </ui:CardControl>
 
-      <ui:CardControl Icon="{ui:SymbolIcon Dismiss24}">
+      <ui:CardControl Icon="{ui:SymbolIcon Desktop24}" Margin="0,0,0,8">
         <ui:CardControl.Header>
-          <ui:TextBlock Text="Stop capture" FontTypography="BodyStrong" />
+          <StackPanel>
+            <ui:TextBlock Text="Back to this PC" FontTypography="BodyStrong" />
+            <ui:TextBlock FontTypography="Caption" TextWrapping="Wrap"
+                          Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                          Text="Always works, whatever the iPad is doing." />
+          </StackPanel>
         </ui:CardControl.Header>
         <ui:TextBlock Text="Ctrl + Alt + Q" FontFamily="Cascadia Mono, Consolas"
                       FontTypography="Body" />
+      </ui:CardControl>
+
+      <ui:CardControl Icon="{ui:SymbolIcon Cursor24}">
+        <ui:CardControl.Header>
+          <StackPanel>
+            <ui:TextBlock Text="Shake the pointer to switch" FontTypography="BodyStrong" />
+            <ui:TextBlock FontTypography="Caption" TextWrapping="Wrap"
+                          Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                          Text="Move the mouse rapidly back and forth to go to the next target, like Ctrl+Alt+CapsLock." />
+          </StackPanel>
+        </ui:CardControl.Header>
+        <ui:ToggleSwitch x:Name="SwitchGestureToggle" Click="OnSwitchGestureChanged" />
       </ui:CardControl>
 
   </StackPanel>

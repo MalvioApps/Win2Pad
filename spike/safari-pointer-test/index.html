@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no, viewport-fit=cover">
+<title>Pointer test</title>
+<style>
+  :root { color-scheme: light dark; }
+  html, body { margin: 0; height: 100%; overflow: hidden; touch-action: none;
+    font: 16px -apple-system, system-ui, sans-serif; background: #111; color: #eee; }
+  #pos { font-size: 64px; font-weight: 700; font-variant-numeric: tabular-nums; margin: 24px; }
+  #verdict { font-size: 28px; margin: 0 24px 16px; padding: 12px 16px; border-radius: 12px; background: #333; }
+  #verdict.ok { background: #145a32; }
+  #verdict.bad { background: #7b241c; }
+  pre { margin: 0 24px; font-size: 15px; line-height: 1.5; white-space: pre-wrap; }
+  #dot { position: fixed; width: 14px; height: 14px; margin: -7px 0 0 -7px; border-radius: 50%;
+    background: #ff3b30; pointer-events: none; display: none; }
+</style>
+</head>
+<body>
+<div id="pos">move the mouse</div>
+<div id="verdict">Waiting for pointer movement without clicking...</div>
+<pre id="info"></pre>
+<div id="dot"></div>
+<script>
+const counts = { pointermove_hover: 0, pointermove_pressed: 0, mousemove: 0, pointerover: 0, touchmove: 0 };
+let last = null, lastSent = 0, pending = [];
+const types = new Set();
+
+function env() {
+  const mq = q => matchMedia(q).matches;
+  return {
+    screen: `${screen.width} x ${screen.height}`,
+    viewport: `${innerWidth} x ${innerHeight}`,
+    dpr: devicePixelRatio,
+    anyHover: mq('(any-hover: hover)'),
+    anyPointerFine: mq('(any-pointer: fine)'),
+    ua: navigator.userAgent,
+  };
+}
+
+function render() {
+  const e = env();
+  document.getElementById('info').textContent =
+    `pointerType seen: ${[...types].join(', ') || '-'}\n` +
+    `events: ${JSON.stringify(counts)}\n` +
+    `screen (pt): ${e.screen}   viewport: ${e.viewport}   devicePixelRatio: ${e.dpr}\n` +
+    `any-hover: ${e.anyHover}   any-pointer fine: ${e.anyPointerFine}\n` +
+    (last ? `last: client ${last.x}, ${last.y}  screen ${last.sx}, ${last.sy}  buttons ${last.buttons}\n` : '') +
+    `\n${e.ua}`;
+  const v = document.getElementById('verdict');
+  if (counts.pointermove_hover > 20) {
+    v.textContent = 'OK: the page receives pointer position without clicking';
+    v.className = 'ok';
+  }
+}
+
+function send(force) {
+  const now = performance.now();
+  if (!force && now - lastSent < 250) return;
+  lastSent = now;
+  const body = JSON.stringify({ env: env(), counts, types: [...types], samples: pending.splice(0) });
+  fetch('/log', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body }).catch(() => {});
+}
+
+addEventListener('pointermove', ev => {
+  types.add(ev.pointerType);
+  if (ev.buttons === 0) counts.pointermove_hover++; else counts.pointermove_pressed++;
+  last = { t: Math.round(ev.timeStamp), type: ev.pointerType, x: Math.round(ev.clientX), y: Math.round(ev.clientY),
+           sx: Math.round(ev.screenX), sy: Math.round(ev.screenY), buttons: ev.buttons };
+  pending.push(last);
+  document.getElementById('pos').textContent = `${last.x}, ${last.y}`;
+  const d = document.getElementById('dot');
+  d.style.display = 'block'; d.style.left = ev.clientX + 'px'; d.style.top = ev.clientY + 'px';
+  render(); send(false);
+});
+addEventListener('mousemove', () => { counts.mousemove++; });
+addEventListener('pointerover', () => { counts.pointerover++; });
+addEventListener('touchmove', () => { counts.touchmove++; }, { passive: true });
+setInterval(() => send(true), 2000);
+render();
+send(true);
+</script>
+</body>
+</html>

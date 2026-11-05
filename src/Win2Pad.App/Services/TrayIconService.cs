@@ -8,7 +8,7 @@ namespace Win2Pad.App.Services;
 
 /// <summary>
 /// Notification area presence. WPF-UI 4.3 ships no tray control, so this wraps the WinForms one.
-/// The icon carries a coloured badge for the link state, so the user can tell from the taskbar
+/// The whole icon takes the colour of the link state, so the user can tell from the taskbar
 /// whether the tablet is connected and which screen has the input.
 /// </summary>
 public sealed class TrayIconService : IDisposable
@@ -27,7 +27,7 @@ public sealed class TrayIconService : IDisposable
         menu.Items.Add("Exit", null, (_, _) => exit());
 
         using var baseIcon = LoadBaseIcon();
-        _icons = Enum.GetValues<LinkState>().ToDictionary(s => s, s => WithBadge(baseIcon, BadgeColor(s)));
+        _icons = Enum.GetValues<LinkState>().ToDictionary(s => s, s => Recolor(baseIcon, StateColor(s)));
 
         _icon = new Forms.NotifyIcon
         {
@@ -79,12 +79,12 @@ public sealed class TrayIconService : IDisposable
         _icon.Text = text.Length <= 63 ? text : text[..63];
     }
 
-    private static Drawing.Color BadgeColor(LinkState state) => state switch
+    private static Drawing.Color StateColor(LinkState state) => state switch
     {
-        LinkState.Off => Drawing.Color.FromArgb(0x8A, 0x8A, 0x8A),
-        LinkState.Waiting => Drawing.Color.FromArgb(0xF2, 0xA9, 0x00),
-        LinkState.Local => Drawing.Color.FromArgb(0x2F, 0x80, 0xED),
-        LinkState.Remote => Drawing.Color.FromArgb(0x27, 0xAE, 0x60),
+        LinkState.Off => Drawing.Color.FromArgb(0x7A, 0x7A, 0x7A),
+        LinkState.Waiting => Drawing.Color.FromArgb(0xE0, 0x8E, 0x00),
+        LinkState.Local => Drawing.Color.FromArgb(0x1F, 0x6F, 0xEB),
+        LinkState.Remote => Drawing.Color.FromArgb(0x1E, 0x9E, 0x4F),
         _ => Drawing.Color.Gray
     };
 
@@ -97,20 +97,26 @@ public sealed class TrayIconService : IDisposable
         return new Drawing.Icon(stream, Forms.SystemInformation.SmallIconSize);
     }
 
-    /// <summary>Draws a status dot in the bottom-right corner, outlined so it reads on light and dark taskbars.</summary>
-    private static Drawing.Icon WithBadge(Drawing.Icon source, Drawing.Color color)
+    /// <summary>
+    /// Repaints the icon's blue tile in the state colour and keeps the white glyphs. The tile has a
+    /// low red channel and the glyphs a full one, so red measures how much of a pixel is glyph,
+    /// which keeps the anti-aliased edges smooth.
+    /// </summary>
+    private static Drawing.Icon Recolor(Drawing.Icon source, Drawing.Color color)
     {
         using var bitmap = source.ToBitmap();
-        using (var g = Drawing.Graphics.FromImage(bitmap))
+        const double tileRed = 40;
+        for (var y = 0; y < bitmap.Height; y++)
+        for (var x = 0; x < bitmap.Width; x++)
         {
-            g.SmoothingMode = Drawing.Drawing2D.SmoothingMode.AntiAlias;
-            var size = bitmap.Width * 0.5f;
-            var rect = new Drawing.RectangleF(bitmap.Width - size, bitmap.Height - size, size - 0.5f, size - 0.5f);
-            using var fill = new Drawing.SolidBrush(color);
-            using var outline = new Drawing.Pen(Drawing.Color.White, Math.Max(1f, bitmap.Width / 16f));
-            g.FillEllipse(fill, rect);
-            g.DrawEllipse(outline, rect);
+            var p = bitmap.GetPixel(x, y);
+            if (p.A == 0) continue;
+            var glyph = Math.Clamp((p.R - tileRed) / (255 - tileRed), 0, 1);
+            bitmap.SetPixel(x, y, Drawing.Color.FromArgb(p.A,
+                Mix(color.R, glyph), Mix(color.G, glyph), Mix(color.B, glyph)));
         }
+
+        static int Mix(int channel, double glyph) => (int)Math.Round(channel + (255 - channel) * glyph);
 
         var handle = bitmap.GetHicon();
         try

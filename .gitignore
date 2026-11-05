@@ -48,3 +48,7 @@ Desktop.ini
 *.local.md
 
 
+
+# Spike output: per-device logs from the Safari pointer test.
+spike/**/results.jsonl
+spike/*.png

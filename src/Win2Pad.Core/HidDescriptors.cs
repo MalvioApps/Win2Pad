@@ -17,6 +17,7 @@ public static class HidDescriptors
 
     public const byte KeyboardReportId = 1;
     public const byte MouseReportId    = 2;
+    public const byte ConsumerReportId = 3;
 
     public const byte ReportTypeInput  = 1;
     public const byte ReportTypeOutput = 2;
@@ -115,6 +116,21 @@ public static class HidDescriptors
         0x95, 0x01,       //     Report Count (1)
         0x81, 0x06,       //     Input (Data,Var,Rel) - wheel
         0xC0,             //   End Collection
+        0xC0,             // End Collection
+
+        // ---- Consumer Control (Report ID 3): media keys, volume, Home, Search ----
+        // One 16-bit usage at a time, the usual shape for these keys; 0 means released.
+        0x05, 0x0C,       // Usage Page (Consumer)
+        0x09, 0x01,       // Usage (Consumer Control)
+        0xA1, 0x01,       // Collection (Application)
+        0x85, ConsumerReportId,
+        0x15, 0x00,       //   Logical Minimum (0)
+        0x26, 0xFF, 0x03, //   Logical Maximum (1023)
+        0x19, 0x00,       //   Usage Minimum (0)
+        0x2A, 0xFF, 0x03, //   Usage Maximum (1023)
+        0x75, 0x10,       //   Report Size (16)
+        0x95, 0x01,       //   Report Count (1)
+        0x81, 0x00,       //   Input (Data,Array)
         0xC0              // End Collection
     ];
 }

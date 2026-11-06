@@ -10,12 +10,12 @@ namespace Win2Pad.Core;
 /// </summary>
 public static class CaptureSession
 {
-    internal enum Queued { Report, MouseReport, SwitchHost, GoLocal, EdgeEnter }
+    internal enum Queued { Report, MouseReport, SwitchHost, GoLocal, EdgeEnter, Consumer }
 
     internal readonly record struct InputReport(Queued Kind,
         KeyModifiers Modifiers = KeyModifiers.None, byte[]? Usages = null,
         MouseButtons Buttons = MouseButtons.None, int Dx = 0, int Dy = 0, int Wheel = 0,
-        IReadOnlyList<PinMove>? Moves = null);
+        IReadOnlyList<PinMove>? Moves = null, ushort Consumer = 0);
 
     internal sealed class ReportQueue
     {
@@ -30,6 +30,8 @@ public static class CaptureSession
 
         public void EnqueueKeyboard(KeyModifiers modifiers, byte[] usages) =>
             _ordered.Enqueue(new(Queued.Report, modifiers, usages));
+
+        public void EnqueueConsumer(ushort usage) => _ordered.Enqueue(new(Queued.Consumer, Consumer: usage));
 
         public void EnqueueMouse(MouseButtons buttons, int dx, int dy, int wheel)
         {
@@ -200,6 +202,13 @@ public static class CaptureSession
                             continue;
                         }
 
+                        if (key.Kind == Queued.Consumer)
+                        {
+                            await peripheral.SendConsumerAsync(key.Consumer);
+                            Interlocked.Increment(ref sent);
+                            continue;
+                        }
+
                         if (key.Kind == Queued.EdgeEnter)
                         {
                             await peripheral.RefreshHostNamesAsync();
@@ -289,6 +298,12 @@ public static class CaptureSession
             reports.EnqueueKeyboard(modifiers, usages);
             Wake();
         };
+        capture.ConsumerReport += usage =>
+        {
+            reports.EnqueueConsumer(usage);
+            Wake();
+        };
+
         // The tablet's pointer speed setting: movement is scaled, keeping the fractions so slow
         // moves are not rounded away.
         double carryX = 0, carryY = 0;

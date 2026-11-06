@@ -40,6 +40,8 @@ hardware to buy.
   colour.
 - **Any keyboard layout.** Keys are sent by position, like a real Bluetooth keyboard: QWERTY,
   QWERTZ, AZERTY, Dvorak, Japanese and Brazilian keyboards all work, AltGr included.
+- **Media keys** work on the iPad: volume, mute, play/pause, next and previous track, plus Home
+  and Spotlight search on keyboards that have those keys.
 - **Updates itself** and can start with Windows.
 
 See what is coming next in the [roadmap](ROADMAP.md).
@@ -148,6 +150,7 @@ drag it anywhere, right-click to hide it.
 | Coming back takes too much pushing, or notifications open | Check that **Screens** matches your desk, then **Fine-tune…** the iPad in **Devices**. |
 | The pointer comes back at the wrong height | **Fine-tune…** the iPad in **Devices**. |
 | It enters the iPad when you don't want it to | Turn off *Move to the iPad through the screen edge* in **Screens** and use the shortcut instead. |
+| Media keys do nothing on the iPad | They need the iPad to pair again once after updating to 0.2: forget the PC in the iPad's Bluetooth settings and pair again. |
 | The Home page says Bluetooth cannot advertise | Your adapter does not support the LE peripheral role; a small USB Bluetooth 5 adapter usually does. |
 
 Still stuck? **About → Report a problem** opens a bug report with your version, Windows and iPad

@@ -43,6 +43,8 @@ ningún accesorio.
   opcional, cambian de color.
 - **Cualquier distribución de teclado.** Las teclas se envían por posición, como un teclado
   Bluetooth de verdad: QWERTY, QWERTZ, AZERTY, Dvorak, japonés o brasileño, con la `ñ`, los acentos y AltGr.
+- **Teclas multimedia** en el iPad: volumen, silencio, reproducir/pausa, pista siguiente y
+  anterior, y también Inicio y la búsqueda de Spotlight en los teclados que tienen esas teclas.
 - **Se actualiza solo** y puede arrancar con Windows.
 
 Lo que viene a continuación está en el [roadmap](ROADMAP.md) (en inglés).
@@ -153,6 +155,7 @@ arrástralo donde quieras y ocúltalo con clic derecho.
 | Cuesta mucho volver, o se abren las notificaciones | Comprueba que **Screens** coincide con tu mesa y haz **Fine-tune…** del iPad en **Devices**. |
 | El puntero vuelve a una altura que no es | Haz **Fine-tune…** del iPad en **Devices**. |
 | Entra al iPad cuando no quieres | Desactiva *Move to the iPad through the screen edge* en **Screens** y usa el atajo. |
+| Las teclas multimedia no hacen nada en el iPad | Hace falta volver a emparejar el iPad una vez tras actualizar a la 0.2: olvida el PC en los ajustes de Bluetooth del iPad y empareja de nuevo. |
 | La página Home dice que el Bluetooth no puede anunciarse | Tu adaptador no admite el modo LE periférico; un adaptador USB Bluetooth 5 pequeño suele servir. |
 
 ¿Sigues atascado? **About → Report a problem** abre un informe de error con tu versión, Windows y

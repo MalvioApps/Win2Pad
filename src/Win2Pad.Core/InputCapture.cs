@@ -62,6 +62,10 @@ public sealed class InputCapture : IDisposable
     public event Action<int, int, bool>? LocalPointerMoved;
 
     public event Action<KeyModifiers, byte[]>? KeyboardReport;
+
+    /// <summary>A media key pressed (usage) or released (0) while input goes to the tablet.</summary>
+    public event Action<ushort>? ConsumerReport;
+
     public event Action<MouseButtons, int, int, int>? MouseReport;
     public event Action? SwitchHostRequested;
     public event Action? StopRequested;
@@ -373,6 +377,13 @@ public sealed class InputCapture : IDisposable
         {
             if (isDown) _localPressedVirtualKeys.Add(virtualKey);
             return false;
+        }
+
+        // Media keys travel in their own report, not as keyboard usages.
+        if (ConsumerKeyMap.TryGetUsage(virtualKey, out var consumer))
+        {
+            ConsumerReport?.Invoke(isDown ? consumer : (ushort)0);
+            return !releaseLocally;
         }
 
         if (VirtualKeyMap.TryGetUsage(virtualKey, scanCode, extended, out var usage))

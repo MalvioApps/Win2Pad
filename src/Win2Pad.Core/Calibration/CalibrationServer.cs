@@ -54,6 +54,12 @@ public sealed class CalibrationServer : IPointerFeed, IAsyncDisposable
     /// <summary>Raised from a server thread when a page connects, reports its size or goes away.</summary>
     public event Action? PageChanged;
 
+    /// <summary>Raised from a server thread for every position the page reports.</summary>
+    public event Action<PointerSample>? Sampled;
+
+    /// <summary>The page's address with a mode: "track" opens it to compare, without calibrating.</summary>
+    public string UrlFor(string mode) => $"{Url}&mode={Uri.EscapeDataString(mode)}";
+
     public static CalibrationServer Start()
     {
         var address = LanAddress() ?? throw new InvalidOperationException(
@@ -226,7 +232,9 @@ public sealed class CalibrationServer : IPointerFeed, IAsyncDisposable
                     break;
                 case "move":
                     var sample = new PointerSample(0, root.GetProperty("x").GetDouble(), root.GetProperty("y").GetDouble());
-                    lock (_socketLock) _latest = sample with { Sequence = ++_sequence };
+                    PointerSample numbered;
+                    lock (_socketLock) _latest = numbered = sample with { Sequence = ++_sequence };
+                    Sampled?.Invoke(numbered);
                     break;
             }
         }

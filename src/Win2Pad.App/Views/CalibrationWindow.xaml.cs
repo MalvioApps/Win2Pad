@@ -173,7 +173,7 @@ public partial class CalibrationWindow : FluentWindow
         StatusBar.Message = message;
     }
 
-    private static BitmapImage QrCode(string text)
+    internal static BitmapImage QrCode(string text)
     {
         using var generator = new QRCodeGenerator();
         using var data = generator.CreateQrCode(text, QRCodeGenerator.ECCLevel.M);

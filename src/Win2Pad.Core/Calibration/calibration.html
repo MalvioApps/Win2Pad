@@ -24,6 +24,8 @@
   .done #step { color: var(--ok); } .done .bar > div { background: var(--ok); }
   .failed #step { color: var(--bad); } .failed .bar > div { background: var(--bad); }
   #conn { margin-top: 16px; font-size: 14px; color: var(--muted); }
+  #full { margin-top: 18px; font: 600 16px -apple-system, system-ui, sans-serif; color: #fff;
+    background: var(--accent); border: 0; border-radius: 10px; padding: 10px 18px; display: none; }
   /* border-box: the 3px border is inside the 18px, so the -9px margins centre it on the pointer. */
   #dot { position: fixed; box-sizing: border-box; width: 18px; height: 18px; margin: -9px 0 0 -9px; border-radius: 50%;
     border: 3px solid var(--accent); pointer-events: none; display: none; }
@@ -38,11 +40,25 @@
     <div id="step">Waiting for your PC…</div>
     <div class="bar"><div id="fill"></div></div>
     <div id="conn">Connecting…</div>
+    <button id="full" type="button">Full screen</button>
   </div>
 </main>
 <div id="dot"></div>
 <script>
-const key = new URLSearchParams(location.search).get('k');
+const params = new URLSearchParams(location.search);
+const key = params.get('k');
+
+// Comparison mode: nothing is measured; the page only reports where the pointer really is, so
+// Win2Pad can compare that with its estimate while the mouse is used normally.
+if (params.get('mode') === 'track') {
+  document.title = 'Win2Pad comparison';
+  document.querySelector('h1').textContent = 'Win2Pad comparison';
+  document.querySelector('p').textContent =
+    'Use the mouse over this page as you normally would: slow, fast, up and down. Win2Pad compares ' +
+    'where it thinks the pointer is with where it really is. Stop it from the live view on your PC.';
+  document.getElementById('step').textContent = 'Comparing…';
+  document.querySelector('.bar').style.display = 'none';
+}
 const conn = document.getElementById('conn');
 const dot = document.getElementById('dot');
 let ws = null;
@@ -74,6 +90,25 @@ addEventListener('pointermove', ev => {
   dot.style.top = ev.clientY + 'px';
 });
 addEventListener('resize', hello);
+
+// Full screen hides the status bar and Safari's address bar, so the page sees the pointer over
+// the whole screen, including the top where returning to the PC happens. iPad Safari supports it
+// on any element; it needs a click, and Win2Pad's mouse click counts.
+const full = document.getElementById('full');
+const root = document.documentElement;
+const request = root.requestFullscreen || root.webkitRequestFullscreen;
+const isFull = () => document.fullscreenElement || document.webkitFullscreenElement;
+if (request) {
+  full.style.display = 'inline-block';
+  full.addEventListener('click', () => {
+    // The prefixed WebKit call returns nothing; the standard one returns a promise.
+    const result = request.call(root);
+    if (result && result.catch) result.catch(() => {});
+  });
+  const sync = () => { full.style.display = isFull() ? 'none' : 'inline-block'; setTimeout(hello, 300); };
+  document.addEventListener('fullscreenchange', sync);
+  document.addEventListener('webkitfullscreenchange', sync);
+}
 addEventListener('orientationchange', () => setTimeout(hello, 300));
 connect();
 </script>

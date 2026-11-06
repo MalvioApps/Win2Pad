@@ -1,5 +1,7 @@
 using System.Windows;
 using System.Windows.Controls;
+using Win2Pad.Core;
+using Win2Pad.Core.Calibration;
 using System.Windows.Media;
 using System.Windows.Shapes;
 using System.Windows.Threading;
@@ -26,17 +28,36 @@ public sealed class LiveViewWindow : Window
     private readonly DispatcherTimer _timer;
     private bool _wasRemote;
 
+    // Comparison with the real pointer, seen by the Safari page.
+    private readonly Button _compareButton = new() { Content = "Compare with the iPad", Padding = new Thickness(12, 4, 12, 4) };
+    private readonly TextBlock _compareText = new() { Margin = new Thickness(12, 0, 0, 0), VerticalAlignment = VerticalAlignment.Center, TextWrapping = TextWrapping.Wrap };
+    private readonly Image _qr = new() { Width = 150, Height = 150, Margin = new Thickness(12, 6, 12, 0), Visibility = Visibility.Collapsed };
+    private CalibrationServer? _server;
+    private AccuracyRecorder? _recorder;
+    private DateTime _lastReal;
+
     public LiveViewWindow()
     {
         Title = "Win2Pad live view";
         Width = 560;
-        Height = 520;
+        Height = 700;
         Topmost = true;
         WindowStartupLocation = WindowStartupLocation.CenterScreen;
         Background = new SolidColorBrush(Color.FromRgb(0x20, 0x20, 0x20));
         Foreground = Brushes.White;
 
+        var compareRow = new DockPanel { Margin = new Thickness(12, 10, 12, 0) };
+        DockPanel.SetDock(_compareButton, Dock.Left);
+        compareRow.Children.Add(_compareButton);
+        compareRow.Children.Add(_compareText);
+        _compareButton.Click += (_, _) => ToggleCompare();
+        _compareText.Text = "Shows where the pointer really is, from a page in Safari, and records both for analysis.";
+
         var layout = new DockPanel();
+        DockPanel.SetDock(compareRow, Dock.Top);
+        DockPanel.SetDock(_qr, Dock.Top);
+        layout.Children.Add(compareRow);
+        layout.Children.Add(_qr);
         DockPanel.SetDock(_status, Dock.Top);
         DockPanel.SetDock(_numbers, Dock.Bottom);
         layout.Children.Add(_status);
@@ -46,7 +67,63 @@ public sealed class LiveViewWindow : Window
 
         _timer = new DispatcherTimer(TimeSpan.FromMilliseconds(30), DispatcherPriority.Render, (_, _) => Draw(), Dispatcher);
         Loaded += (_, _) => _timer.Start();
-        Closed += (_, _) => _timer.Stop();
+        Closed += (_, _) =>
+        {
+            _timer.Stop();
+            StopCompare();
+        };
+    }
+
+    private void ToggleCompare()
+    {
+        if (_recorder is not null)
+        {
+            StopCompare();
+            return;
+        }
+
+        try
+        {
+            _server = CalibrationServer.Start();
+        }
+        catch (Exception ex)
+        {
+            _compareText.Text = $"Cannot start the comparison page: {ex.Message}";
+            return;
+        }
+
+        var path = AppPaths.InLogs($"compare-{DateTime.Now:yyyyMMdd-HHmmss}.csv");
+        var server = _server;
+        _recorder = new AccuracyRecorder(path, () => server.Page,
+            () => EdgeSwitcher.Current?.Options.Calibration ?? new PointerCalibration(1, 1));
+        var recorder = _recorder;
+        server.Sampled += sample =>
+        {
+            recorder.OnSample(sample, EdgeSwitcher.Current?.Snapshot());
+            _lastReal = DateTime.UtcNow;
+        };
+        EdgeSwitcher.Tracked += recorder.OnReport;
+
+        var url = server.UrlFor("track");
+        _qr.Source = CalibrationWindow.QrCode(url);
+        _qr.Visibility = Visibility.Visible;
+        _compareButton.Content = "Stop comparing";
+        _compareText.Text = $"Scan with the iPad, keep Safari in front and use the mouse over the page. Recording to {path}";
+    }
+
+    private void StopCompare()
+    {
+        if (_recorder is { } recorder)
+        {
+            EdgeSwitcher.Tracked -= recorder.OnReport;
+            recorder.Dispose();
+            _compareText.Text = $"Saved {recorder.Samples} real positions to {recorder.Path}";
+        }
+        _recorder = null;
+        _ = _server?.DisposeAsync().AsTask();
+        _server = null;
+        _qr.Visibility = Visibility.Collapsed;
+        _compareButton.Content = "Compare with the iPad";
     }
 
     private void Draw()
@@ -129,15 +206,30 @@ public sealed class LiveViewWindow : Window
                 Fill = new SolidColorBrush(Color.FromRgb(0x1F, 0x6F, 0xEB))
             }, p.X - 8, p.Y - 8);
         }
+
+        // The real pointer, while the Safari page is reporting it.
+        if (_recorder?.Real is { } real && DateTime.UtcNow - _lastReal < TimeSpan.FromSeconds(1))
+        {
+            var r = new Point(left + real.X * scale, top + real.Y * scale);
+            Add(new Ellipse
+            {
+                Width = 14, Height = 14, Stroke = Brushes.White, StrokeThickness = 2,
+                Fill = new SolidColorBrush(Color.FromRgb(0x1E, 0x9E, 0x4F))
+            }, r.X - 7, r.Y - 7);
+        }
         _wasRemote = live.IsRemote;
 
         _status.Text = !live.IsRemote ? "On this PC. Move onto the iPad to see the estimate."
             : !live.IsTracking ? "On the iPad through a shortcut: there is no estimate to show."
             : !live.LeftEdge ? "On the iPad. Move further in before the way back is armed (amber band)."
-            : "On the iPad. Compare the blue dot with the real pointer on the iPad.";
+            : _recorder is null ? "On the iPad. Compare the blue dot with the real pointer on the iPad."
+            : "On the iPad. Blue: Win2Pad's estimate. Green: the real pointer, seen by the page.";
+        var gap = _recorder?.Real is { } g && live.IsTracking
+            ? $"  off by x {(live.X - g.X) / live.Width:P0} y {(live.Y - g.Y) / live.Height:P0}"
+            : "";
         _numbers.Text = live.IsTracking
             ? $"x {live.X / live.Width:P0}  y {live.Y / live.Height:P0}  push {live.Overshoot:0}/{live.MarginCounts}  " +
-              $"last report {live.LastSpeed:0} counts x{live.LastRatio:0.00}"
+              $"last report {live.LastSpeed:0} counts x{live.LastRatio:0.00}{gap}"
             : "";
     }
 

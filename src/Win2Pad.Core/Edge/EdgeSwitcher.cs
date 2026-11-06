@@ -5,6 +5,10 @@ public sealed record LiveEstimate(
     bool IsRemote, bool IsTracking, TabletSide Side, int Width, int Height, double X, double Y,
     double Overshoot, int MarginCounts, bool LeftEdge, int ArmCounts, double LastSpeed, double LastRatio);
 
+/// <summary>One report as the model applied it: the move and the estimate after it, in counts.</summary>
+public readonly record struct TrackedReport(
+    int Dx, int Dy, double X, double Y, double Speed, double Ratio, double Overshoot, bool Returned);
+
 /// <summary>Switching to the tablet: which monitor, where along its edge, and the moves that place the tablet pointer there.</summary>
 public sealed record EdgeEntry(ScreenRect Monitor, double Fraction, IReadOnlyList<PinMove> Moves);
 
@@ -52,6 +56,12 @@ public sealed class EdgeSwitcher
         get => Volatile.Read(ref _current);
         set => Volatile.Write(ref _current, value);
     }
+
+    /// <summary>
+    /// Raised on the report pump for every report applied to the model: the move, the model's
+    /// estimate after it, and the acceleration it assumed. For comparing with the real pointer.
+    /// </summary>
+    public static event Action<TrackedReport>? Tracked;
 
     public LiveEstimate Snapshot()
     {
@@ -160,7 +170,10 @@ public sealed class EdgeSwitcher
         {
             if (!IsRemote || _model is null || (dx == 0 && dy == 0)) return null;
             var now = _clock();
-            if (!_model.Move(dx, dy, now)) return null;
+            var returned = _model.Move(dx, dy, now);
+            Tracked?.Invoke(new TrackedReport(dx, dy, _model.X, _model.Y, _model.LastSpeed, _model.LastRatio,
+                _model.Overshoot, returned));
+            if (!returned) return null;
 
             var gap = Options.ReturnGapPixels;
             var side = _model.Side;

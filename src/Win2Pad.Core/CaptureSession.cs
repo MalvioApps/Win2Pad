@@ -1,5 +1,6 @@
 using System.Collections.Concurrent;
 using System.Diagnostics;
+using Win2Pad.Core.Clipboard;
 using Win2Pad.Core.Edge;
 using Win2Pad.Core.Typing;
 
@@ -316,14 +317,18 @@ public static class CaptureSession
         capture.CopiedOnTablet += () => tabletCopy = WindowsClipboard.SequenceNumber;
         capture.PasteRequested = () =>
         {
-            if (peripheral.IsLocalTarget || !WindowsClipboard.HasText) return false;
+            if (peripheral.IsLocalTarget) return false;
             if (WindowsClipboard.SequenceNumber == tabletCopy) return false;
-            if (Interlocked.Exchange(ref typing, 1) == 1) return true; // already typing: ignore the repeat
+            var bridge = ClipboardServer.Current;
+            var hasText = WindowsClipboard.HasText;
+            if (!hasText && (bridge is null || !WindowsClipboard.HasImage)) return false;
+            if (Interlocked.Exchange(ref typing, 1) == 1) return true; // already pasting: ignore the repeat
             _ = Task.Run(async () =>
             {
                 try
                 {
-                    await TypeClipboardAsync();
+                    if (bridge is not null) await PasteThroughShortcutAsync(bridge, hasText);
+                    else await TypeClipboardAsync();
                 }
                 catch (Exception ex)
                 {
@@ -337,13 +342,41 @@ public static class CaptureSession
             return true;
         };
 
-        async Task TypeClipboardAsync()
+        // With clipboard sharing on, Ctrl+V runs the "Paste from PC" Shortcut on the tablet
+        // (bound to Control+Option+Command+V in Full Keyboard Access). It fetches the PC clipboard
+        // over the network and calls back when it is on the tablet's clipboard; then ⌘V pastes it.
+        async Task PasteThroughShortcutAsync(ClipboardServer bridge, bool hasText)
+        {
+            var started = Stopwatch.StartNew();
+            var done = bridge.WaitForDoneAsync(TimeSpan.FromSeconds(ShortcutTimeoutSeconds));
+            PressOnTablet(ShortcutTrigger, 0x19);
+            if (await done)
+            {
+                if (peripheral.IsLocalTarget) return;
+                PressOnTablet(KeyModifiers.LeftGui, 0x19); // ⌘V
+                log($"  [paste] pasted through the Shortcut in {started.ElapsedMilliseconds} ms");
+                return;
+            }
+
+            log($"  [paste] the iPad Shortcut did not answer in {ShortcutTimeoutSeconds} s" +
+                (hasText ? "; typing the text instead" : ""));
+            if (hasText) await TypeClipboardAsync(ShortcutFallbackCharacters);
+        }
+
+        void PressOnTablet(KeyModifiers modifiers, byte usage)
+        {
+            reports.EnqueueKeyboard(modifiers, [usage]);
+            reports.EnqueueKeyboard(KeyModifiers.None, []);
+            Wake();
+        }
+
+        async Task TypeClipboardAsync(int maxCharacters = MaxPasteCharacters)
         {
             // Read here, never on the hook thread: opening the clipboard can wait on its owner.
             var text = WindowsClipboard.ReadText();
             if (string.IsNullOrEmpty(text)) return;
-            var truncated = text.Length > MaxPasteCharacters;
-            if (truncated) text = text[..MaxPasteCharacters];
+            var truncated = text.Length > maxCharacters;
+            if (truncated) text = text[..maxCharacters];
 
             var (strokes, skipped) = TextTyper.ToStrokes(text, WindowsKeyLayout.Current());
             var typed = 0;
@@ -359,7 +392,7 @@ public static class CaptureSession
                 await Task.Delay(PasteKeyGapMs);
             }
             log($"  [paste] typed {typed} keys{(skipped > 0 ? $", {skipped} characters the layout cannot type left out" : "")}" +
-                $"{(truncated ? $", cut at {MaxPasteCharacters} characters" : "")}");
+                $"{(truncated ? $", cut at {maxCharacters} characters" : "")}");
         }
 
         capture.MouseReport += (buttons, dx, dy, wheel) =>
@@ -452,6 +485,15 @@ public static class CaptureSession
 
     /// <summary>Pause after each typed key.</summary>
     public const int PasteKeyGapMs = 8;
+
+    /// <summary>The keys that run the "Paste from PC" Shortcut: Control+Option+Command (with V).</summary>
+    public const KeyModifiers ShortcutTrigger = KeyModifiers.LeftControl | KeyModifiers.LeftAlt | KeyModifiers.LeftGui;
+
+    /// <summary>How long to wait for the Shortcut before giving up on it.</summary>
+    public const int ShortcutTimeoutSeconds = 5;
+
+    /// <summary>When the Shortcut does not answer, only this much text is typed instead.</summary>
+    public const int ShortcutFallbackCharacters = 500;
 
     /// <summary>Keeps the selected tablet if it is still connected, otherwise takes the first one.</summary>
     private static bool SelectEdgeHost(HidPeripheral peripheral)

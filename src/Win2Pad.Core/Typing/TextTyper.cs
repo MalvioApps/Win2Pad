@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Runtime.InteropServices;
+using System.Runtime.InteropServices.WindowsRuntime;
 using System.Text;
 
 namespace Win2Pad.Core.Typing;
@@ -197,6 +198,115 @@ public static class WindowsClipboard
         }
         return null;
     }
+
+    private const uint CF_DIB = 8;
+    private static readonly uint CF_PNG = RegisterClipboardFormatW("PNG");
+
+    /// <summary>Whether there is a picture to paste; cheap, does not open the clipboard.</summary>
+    public static bool HasImage => IsClipboardFormatAvailable(CF_DIB) || (CF_PNG != 0 && IsClipboardFormatAvailable(CF_PNG));
+
+    /// <summary>
+    /// The clipboard picture as PNG, or null. Browsers and Office also put a PNG, which keeps
+    /// transparency; otherwise the bitmap every program puts is converted. Not on the hook thread.
+    /// </summary>
+    public static async Task<byte[]?> ReadImagePngAsync()
+    {
+        if (CF_PNG != 0 && ReadBytes(CF_PNG) is { Length: > 8 } png) return png;
+        if (ReadBytes(CF_DIB) is not { Length: > 40 } dib) return null;
+        try
+        {
+            return await DibToPngAsync(dib);
+        }
+        catch (Exception ex) when (ex is ArgumentException or COMException or InvalidOperationException)
+        {
+            return null;
+        }
+    }
+
+    /// <summary>A CF_DIB (a bitmap without its file header) as a .bmp file.</summary>
+    internal static byte[] DibToBmp(byte[] dib)
+    {
+        var headerSize = BitConverter.ToInt32(dib, 0);
+        var bitCount = BitConverter.ToUInt16(dib, 14);
+        var compression = BitConverter.ToUInt32(dib, 16);
+        var colorsUsed = BitConverter.ToUInt32(dib, 32);
+        var colorTable = bitCount <= 8 ? (int)(colorsUsed == 0 ? 1u << bitCount : colorsUsed) * 4 : 0;
+        var masks = compression == 3 && headerSize == 40 ? 12 : 0; // BI_BITFIELDS after a plain header
+        var offset = 14 + headerSize + masks + colorTable;
+
+        var bmp = new byte[14 + dib.Length];
+        bmp[0] = (byte)'B';
+        bmp[1] = (byte)'M';
+        BitConverter.GetBytes(bmp.Length).CopyTo(bmp, 2);
+        BitConverter.GetBytes(offset).CopyTo(bmp, 10);
+        dib.CopyTo(bmp, 14);
+        return bmp;
+    }
+
+    private static async Task<byte[]> DibToPngAsync(byte[] dib)
+    {
+        using var input = new Windows.Storage.Streams.InMemoryRandomAccessStream();
+        await input.WriteAsync(DibToBmp(dib).AsBuffer());
+        input.Seek(0);
+        var decoder = await Windows.Graphics.Imaging.BitmapDecoder.CreateAsync(input);
+        // Most programs leave the alpha byte of a 32-bit bitmap at zero: treat it as opaque.
+        using var bitmap = await decoder.GetSoftwareBitmapAsync(
+            Windows.Graphics.Imaging.BitmapPixelFormat.Bgra8, Windows.Graphics.Imaging.BitmapAlphaMode.Ignore);
+
+        using var output = new Windows.Storage.Streams.InMemoryRandomAccessStream();
+        var encoder = await Windows.Graphics.Imaging.BitmapEncoder.CreateAsync(
+            Windows.Graphics.Imaging.BitmapEncoder.PngEncoderId, output);
+        encoder.SetSoftwareBitmap(bitmap);
+        await encoder.FlushAsync();
+
+        var png = new byte[output.Size];
+        output.Seek(0);
+        using var reader = new Windows.Storage.Streams.DataReader(output);
+        await reader.LoadAsync((uint)output.Size);
+        reader.ReadBytes(png);
+        return png;
+    }
+
+    private static byte[]? ReadBytes(uint format)
+    {
+        if (!IsClipboardFormatAvailable(format)) return null;
+        for (var attempt = 0; attempt < 10; attempt++)
+        {
+            if (OpenClipboard(IntPtr.Zero))
+            {
+                try
+                {
+                    var handle = GetClipboardData(format);
+                    if (handle == IntPtr.Zero) return null;
+                    var size = (int)GlobalSize(handle);
+                    var pointer = GlobalLock(handle);
+                    if (pointer == IntPtr.Zero || size <= 0) return null;
+                    try
+                    {
+                        var bytes = new byte[size];
+                        Marshal.Copy(pointer, bytes, 0, size);
+                        return bytes;
+                    }
+                    finally
+                    {
+                        GlobalUnlock(handle);
+                    }
+                }
+                finally
+                {
+                    CloseClipboard();
+                }
+            }
+            Thread.Sleep(20);
+        }
+        return null;
+    }
+
+    [DllImport("user32.dll", CharSet = CharSet.Unicode)]
+    private static extern uint RegisterClipboardFormatW(string format);
+
+    [DllImport("kernel32.dll")]
+    private static extern UIntPtr GlobalSize(IntPtr handle);
 
     [DllImport("user32.dll")]
     private static extern uint GetClipboardSequenceNumber();

@@ -50,6 +50,11 @@ public partial class App : Application
         // The environment variable still works for testing; the setting is the normal way.
         if (AppSettings.Instance.SwapIsoKeys) VirtualKeyMap.SwapIsoKeys = true;
 
+        // Clipboard sharing runs its small LAN server whenever it is on, capturing or not, so the
+        // iPad can be set up from the Clipboard page at any time.
+        Win2Pad.Core.Clipboard.ClipboardOptions.Saved += options => _ = Win2Pad.Core.Clipboard.ClipboardServer.ApplyAsync(options);
+        _ = Win2Pad.Core.Clipboard.ClipboardServer.ApplyAsync(Win2Pad.Core.Clipboard.ClipboardOptions.Load());
+
         Tray = new TrayIconService(ShowMainWindow, ExitApplication, ExtendTrayMenu);
         Indicator = new IndicatorWindow();
         ApplyIndicatorVisibility();

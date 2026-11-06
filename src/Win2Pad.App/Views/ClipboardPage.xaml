@@ -1,0 +1,60 @@
+<Page x:Class="Win2Pad.App.Views.ClipboardPage"
+      xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+      xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+      xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+      Foreground="{DynamicResource TextFillColorPrimaryBrush}"
+      Title="Clipboard">
+
+  <StackPanel Margin="24,0,24,24">
+
+    <ui:TextBlock Text="Clipboard" FontTypography="TitleLarge" Margin="0,0,0,4" />
+    <ui:TextBlock Text="Paste on the iPad what you copied on the PC."
+                  FontTypography="Body" Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                  TextWrapping="Wrap" Margin="0,0,0,20" />
+
+    <ui:CardControl Icon="{ui:SymbolIcon ClipboardPaste24}" Margin="0,0,0,8">
+      <ui:CardControl.Header>
+        <StackPanel>
+          <ui:TextBlock Text="Paste through a Shortcut on the iPad" FontTypography="BodyStrong" />
+          <ui:TextBlock FontTypography="Caption" TextWrapping="Wrap"
+                        Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                        Text="Ctrl+V on the iPad pastes the PC clipboard at once, text or images, over your Wi-Fi. When off, Ctrl+V types the text out key by key." />
+        </StackPanel>
+      </ui:CardControl.Header>
+      <ui:ToggleSwitch x:Name="EnabledToggle" Click="OnEnabledChanged" />
+    </ui:CardControl>
+
+    <ui:InfoBar x:Name="StatusBar" IsClosable="False" Margin="0,0,0,16" />
+
+    <StackPanel x:Name="SetupPanel">
+      <ui:TextBlock Text="Set up the iPad once" FontTypography="BodyStrong" Margin="0,8,0,8" />
+      <Border CornerRadius="8" Padding="16" Background="{DynamicResource CardBackgroundFillColorDefaultBrush}">
+        <Grid>
+          <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="Auto" />
+            <ColumnDefinition Width="*" />
+          </Grid.ColumnDefinitions>
+          <Border Background="White" CornerRadius="6" Padding="6" VerticalAlignment="Top">
+            <Image x:Name="QrImage" Width="168" Height="168" RenderOptions.BitmapScalingMode="NearestNeighbor" />
+          </Border>
+          <StackPanel Grid.Column="1" Margin="20,0,0,0">
+            <ui:TextBlock TextWrapping="Wrap" Margin="0,0,0,8"
+                          Text="Scan the code with the iPad's Camera and open it in Safari. The page walks you through making the &quot;Paste from PC&quot; Shortcut and giving it Control + Option + Command + V." />
+            <ui:TextBlock TextWrapping="Wrap" FontTypography="Caption" Margin="0,0,0,12"
+                          Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                          Text="The iPad and this PC must be on the same Wi-Fi. If Windows asks about network access, allow it on private networks." />
+            <ui:TextBox x:Name="SetupUrl" IsReadOnly="True" FontFamily="Consolas" Margin="0,0,0,8" />
+            <StackPanel Orientation="Horizontal">
+              <ui:Button Content="New key" Icon="{ui:SymbolIcon ArrowSync24}" Click="OnNewKey"
+                         ToolTip="Locks out the current Shortcut; you then put the new addresses in it." />
+            </StackPanel>
+          </StackPanel>
+        </Grid>
+      </Border>
+
+      <ui:TextBlock x:Name="LastFetch" FontTypography="Caption" Margin="0,12,0,0"
+                    Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+    </StackPanel>
+
+  </StackPanel>
+</Page>

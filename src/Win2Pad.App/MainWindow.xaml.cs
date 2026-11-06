@@ -39,6 +39,7 @@ public partial class MainWindow : FluentWindow
         "screens" or "arrangement" => typeof(ArrangementPage),
         "devices" => typeof(DevicesPage),
         "keyboard" or "capture" => typeof(CapturePage),
+        "clipboard" => typeof(ClipboardPage),
         "settings" => typeof(SettingsPage),
         "about" => typeof(AboutPage),
         _ => null

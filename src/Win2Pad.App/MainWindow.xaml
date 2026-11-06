@@ -60,6 +60,12 @@
             <ui:SymbolIcon Symbol="Keyboard24" />
           </ui:NavigationViewItem.Icon>
         </ui:NavigationViewItem>
+
+        <ui:NavigationViewItem Content="Clipboard" TargetPageType="{x:Type views:ClipboardPage}">
+          <ui:NavigationViewItem.Icon>
+            <ui:SymbolIcon Symbol="ClipboardPaste24" />
+          </ui:NavigationViewItem.Icon>
+        </ui:NavigationViewItem>
       </ui:NavigationView.MenuItems>
 
       <ui:NavigationView.FooterMenuItems>

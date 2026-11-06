@@ -2,7 +2,7 @@
 
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
-    <TargetFramework>net8.0-windows10.0.22000.0</TargetFramework>
+    <TargetFramework>net10.0-windows10.0.22000.0</TargetFramework>
     <SupportedOSPlatformVersion>10.0.19041.0</SupportedOSPlatformVersion>
     <UseWPF>true</UseWPF>
     <UseWindowsForms>true</UseWindowsForms>
@@ -23,7 +23,9 @@
     <ApplicationIcon>Assets\win2pad.ico</ApplicationIcon>
     <!-- WFAC010 asks for the WinForms DPI property instead, but the manifest has to declare it:
          the capture hook reports physical pixels and must not be virtualised. -->
-    <NoWarn>$(NoWarn);WFAC010</NoWarn>
+    <!-- WFO0003, the .NET 10 form of the same advice, likewise: the manifest is the only place
+         that takes effect before the first window and the first hook. -->
+    <NoWarn>$(NoWarn);WFAC010;WFO0003</NoWarn>
   </PropertyGroup>
 
   <ItemGroup>

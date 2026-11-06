@@ -151,11 +151,11 @@ public sealed class EntryRatioTests
     }
 
     [Fact]
-    public void The_fine_tune_measures_how_much_a_single_large_move_is_accelerated()
+    public async Task The_fine_tune_measures_how_much_a_single_large_move_is_accelerated()
     {
-        // The simulated tablet multiplies a 60 or 120-count report by its 2.2 cap.
+        // The simulated tablet multiplies every large report by its 2.2 cap.
         var tablet = new SimulatedTabletForEntry();
-        var result = new TabletCalibrator(tablet, tablet, _ => Task.CompletedTask).RunAsync().GetAwaiter().GetResult();
+        var result = await new TabletCalibrator(tablet, tablet, _ => Task.CompletedTask).RunAsync();
         Assert.NotNull(result.EntryRatio);
         Assert.InRange(result.EntryRatio!.Value, 2.1, 2.3);
     }

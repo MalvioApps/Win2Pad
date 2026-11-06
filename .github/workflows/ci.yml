@@ -7,7 +7,7 @@ on:
 
 jobs:
   test:
-    # Windows only: the projects target net8.0-windows and use WinRT projections.
+    # Windows only: the projects target net10.0-windows and use WinRT projections.
     runs-on: windows-latest
 
     steps:
@@ -15,9 +15,8 @@ jobs:
 
       - uses: actions/setup-dotnet@v4
         with:
-          # The SDK pinned in global.json, plus the runtime the projects target.
-          global-json-file: global.json
-          dotnet-version: '8.0.x'
+          # .NET 10 LTS: the SDK builds it and the runtime runs the tests.
+          dotnet-version: '10.0.x'
 
       - name: Build
         run: dotnet build Win2Pad.sln -c Release

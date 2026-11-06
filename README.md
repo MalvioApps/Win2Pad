@@ -49,6 +49,8 @@ hardware to buy.
   last few years do; Win2Pad tells you on its Home page if yours does not.
 - An iPad with iPadOS 13.4 or later (the first version with pointer support).
 
+Nothing else: the installer carries its own copy of .NET, so there is no runtime to install.
+
 ## Install
 
 1. Download **`Win2Pad-win-Setup.exe`** from the [latest release](https://github.com/MalvioApps/Win2Pad/releases/latest).
@@ -170,7 +172,7 @@ dotnet test Win2Pad.sln
 dotnet run --project src/Win2Pad.App
 ```
 
-Needs the .NET 9 SDK (see `global.json`) and the .NET 8 runtime. `--page screens` (or `home`,
+Needs the .NET 10 SDK (see `global.json`). `--page screens` (or `home`,
 `devices`, `keyboard`, `settings`, `about`) opens the app on that page.
 
 ## Releasing

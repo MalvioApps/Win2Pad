@@ -64,10 +64,10 @@ public sealed class LargeReportTests
     }
 
     [Fact]
-    public void The_fine_tune_adds_large_reports_to_the_curve()
+    public async Task The_fine_tune_adds_large_reports_to_the_curve()
     {
         var tablet = new LargeMoveTablet();
-        var result = new TabletCalibrator(tablet, tablet, _ => Task.CompletedTask).RunAsync().GetAwaiter().GetResult();
+        var result = await new TabletCalibrator(tablet, tablet, _ => Task.CompletedTask).RunAsync();
         Assert.NotNull(result.LargeMoves);
         Assert.Equal(TabletCalibrator.EntryMoves.Length, result.LargeMoves!.Count);
 

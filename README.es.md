@@ -52,6 +52,8 @@ ningún accesorio.
   los últimos años lo admiten; la página Home de Win2Pad te avisa si el tuyo no.
 - Un iPad con iPadOS 13.4 o posterior (la primera versión con soporte de puntero).
 
+Nada más: el instalador lleva su propia copia de .NET, así que no hay que instalar ningún runtime.
+
 ## Instalación
 
 1. Descarga **`Win2Pad-win-Setup.exe`** de la [última versión](https://github.com/MalvioApps/Win2Pad/releases/latest).

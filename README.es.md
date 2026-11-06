@@ -64,6 +64,7 @@ Nada más: el instalador lleva su propia copia de .NET, así que no hay que inst
    firmado. Pulsa **Más información → Ejecutar de todas formas**.
 
 A partir de ahí, Win2Pad se actualiza solo. Para desinstalarlo, usa *Configuración → Aplicaciones* de Windows.
+Ver la [política de firma de código](#política-de-firma-de-código-code-signing-policy) y la [privacidad](#privacidad).
 
 ## Primeros pasos
 
@@ -160,10 +161,31 @@ tiene un botón **Copy log** para pegar el registro en el informe.
 
 ## Privacidad
 
-Win2Pad no tiene telemetría ni cuentas. Solo se conecta a internet para buscar actualizaciones
-en GitHub (puedes desactivarlo en *Settings*), y la página del ajuste fino solo se sirve en tu
-red local mientras su ventana está abierta. Los ajustes se guardan en
+Win2Pad no tiene telemetría, ni cuentas, ni analíticas. Lo que envía por red:
+
+- **Buscar actualizaciones.** Poco después de abrirse, pregunta a GitHub (`api.github.com`,
+  `github.com`) si hay una versión nueva de este repositorio y, si la hay, la descarga. GitHub
+  ve tu dirección IP y la petición, como en cualquier visita a GitHub; no se envía ningún dato
+  sobre ti ni tus dispositivos. Se desactiva en *Settings → Update automatically*. A esas
+  peticiones se aplica la
+  [política de privacidad de GitHub](https://docs.github.com/site-policy/privacy-policies/github-general-privacy-statement).
+- **Las páginas del ajuste fino y de comparación**, servidas solo en tu red local y solo mientras
+  su ventana está abierta. Reciben las posiciones del puntero que ve el navegador del iPad, para
+  medirlo.
+- **Bluetooth** con el iPad emparejado: el teclado y el ratón que le envías.
+
+Nada más sale de tu PC. Los ajustes, calibraciones y registros se quedan en
 `%LOCALAPPDATA%\MalvioApps\Win2Pad`.
+
+## Política de firma de código (Code signing policy)
+
+Free code signing provided by [SignPath.io](https://about.signpath.io), certificate by
+[SignPath Foundation](https://signpath.org).
+
+> Solicitado. Las versiones hasta la 0.1.1 todavía no están firmadas; las firmadas empezarán
+> cuando se apruebe la solicitud.
+
+Los roles y el proceso se detallan en la [versión en inglés](README.md#code-signing-policy).
 
 ## Cómo funciona
 

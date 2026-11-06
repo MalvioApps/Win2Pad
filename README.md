@@ -61,6 +61,7 @@ Nothing else: the installer carries its own copy of .NET, so there is no runtime
    Choose **More info → Run anyway**.
 
 Win2Pad updates itself from then on. To uninstall it, use *Settings → Apps* in Windows.
+See the [code signing policy](#code-signing-policy) and [privacy](#privacy).
 
 ## Getting started
 
@@ -155,9 +156,36 @@ a **Copy log** button to paste the log into the report.
 
 ## Privacy
 
-Win2Pad has no telemetry and no account. It goes online only to check GitHub for updates (you
-can turn that off in *Settings*), and the fine-tune page is served on your local network only
-while its window is open. Settings live in `%LOCALAPPDATA%\MalvioApps\Win2Pad`.
+Win2Pad has no telemetry, no account and no analytics. What it sends over a network:
+
+- **Update checks.** Shortly after starting, Win2Pad asks GitHub
+  (`api.github.com`, `github.com`) whether a newer release of this repository exists, and
+  downloads it if so. GitHub sees your IP address and the request, as with any visit to GitHub;
+  no data about you or your devices is sent. Turn it off in *Settings → Update automatically*.
+  [GitHub's privacy statement](https://docs.github.com/site-policy/privacy-policies/github-general-privacy-statement)
+  applies to those requests.
+- **The fine-tune and comparison pages**, served only on your local network and only while their
+  window is open. They receive the pointer positions the iPad's browser reports, to measure it.
+- **Bluetooth** to the paired iPad: the keyboard and mouse input you send it.
+
+Nothing else leaves your PC. Settings, calibrations and logs stay in
+`%LOCALAPPDATA%\MalvioApps\Win2Pad`.
+
+## Code signing policy
+
+Free code signing provided by [SignPath.io](https://about.signpath.io), certificate by
+[SignPath Foundation](https://signpath.org).
+
+> Win2Pad has applied for this. Releases up to 0.1.1 are not signed yet; signed releases
+> will start once the application is approved.
+
+- **Committers and reviewers:** [Jorge Ramirez (@eljorgit)](https://github.com/eljorgit)
+- **Approvers:** [Jorge Ramirez (@eljorgit)](https://github.com/eljorgit), who approves each
+  release before it is signed.
+
+Every release is built from this repository by the [release workflow](.github/workflows/release.yml)
+on GitHub Actions; nothing built elsewhere is signed. See [Privacy](#privacy) for what Win2Pad
+sends over a network.
 
 ## How it works
 

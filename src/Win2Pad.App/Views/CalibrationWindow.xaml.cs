@@ -195,5 +195,12 @@ public partial class CalibrationWindow : FluentWindow
             if (!await peripheral.SendMouseToHostAsync(deviceId, dx, dy))
                 throw new CalibrationException("The iPad disconnected from Bluetooth.");
         }
+
+        public async Task ClickAsync()
+        {
+            await peripheral.SendMouseToHostAsync(deviceId, 0, 0, MouseButtons.Left);
+            await Task.Delay(60);
+            await peripheral.SendMouseToHostAsync(deviceId, 0, 0, MouseButtons.None);
+        }
     }
 }

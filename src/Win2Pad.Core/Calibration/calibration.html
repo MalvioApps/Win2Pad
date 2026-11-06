@@ -26,6 +26,9 @@
   #conn { margin-top: 16px; font-size: 14px; color: var(--muted); }
   #full { margin-top: 18px; font: 600 16px -apple-system, system-ui, sans-serif; color: #fff;
     background: var(--accent); border: 0; border-radius: 10px; padding: 10px 18px; display: none; }
+  #exit { position: fixed; top: 14px; right: 14px; font: 600 14px -apple-system, system-ui, sans-serif;
+    color: var(--fg); background: var(--card); border: 1px solid rgba(127,127,127,.35); border-radius: 18px;
+    padding: 8px 14px; display: none; }
   /* border-box: the 3px border is inside the 18px, so the -9px margins centre it on the pointer. */
   #dot { position: fixed; box-sizing: border-box; width: 18px; height: 18px; margin: -9px 0 0 -9px; border-radius: 50%;
     border: 3px solid var(--accent); pointer-events: none; display: none; }
@@ -41,9 +44,11 @@
     <div class="bar"><div id="fill"></div></div>
     <div id="conn">Connecting…</div>
     <button id="full" type="button">Full screen</button>
+    <div id="hint" style="margin-top:10px;font-size:14px;color:var(--muted)">Click anywhere on this page for full screen.</div>
   </div>
 </main>
 <div id="dot"></div>
+<button id="exit" type="button">Exit full screen</button>
 <script>
 const params = new URLSearchParams(location.search);
 const key = params.get('k');
@@ -59,6 +64,7 @@ if (params.get('mode') === 'track') {
   document.getElementById('step').textContent = 'Comparing…';
   document.querySelector('.bar').style.display = 'none';
 }
+const tracking = params.get('mode') === 'track';
 const conn = document.getElementById('conn');
 const dot = document.getElementById('dot');
 let ws = null;
@@ -72,13 +78,20 @@ function hello() {
 function connect() {
   ws = new WebSocket(`ws://${location.host}/ws?k=${encodeURIComponent(key || '')}`);
   ws.onopen = () => { conn.textContent = 'Connected to your PC'; hello(); };
-  ws.onclose = () => { conn.textContent = 'Disconnected - retrying…'; setTimeout(connect, 1500); };
+  ws.onclose = () => {
+    conn.textContent = 'Disconnected - retrying…';
+    // A comparison ends when the PC stops it: leave full screen with it.
+    if (tracking) leaveFull();
+    setTimeout(connect, 1500);
+  };
   ws.onmessage = ev => {
     const m = JSON.parse(ev.data);
     if (m.type !== 'status') return;
     document.getElementById('step').textContent = m.text;
     document.getElementById('fill').style.width = Math.round(m.progress * 100) + '%';
     document.getElementById('card').className = 'card ' + (m.state || '');
+    // Calibration finished or failed: nothing more to see full screen.
+    if (m.state === 'done' || m.state === 'failed') setTimeout(leaveFull, 1500);
   };
 }
 
@@ -94,20 +107,45 @@ addEventListener('resize', hello);
 // Full screen hides the status bar and Safari's address bar, so the page sees the pointer over
 // the whole screen, including the top where returning to the PC happens. iPad Safari supports it
 // on any element; it needs a click, and Win2Pad's mouse click counts.
+// A page cannot go full screen by itself, only on a click: so the first click anywhere does it.
+// During calibration Win2Pad clicks on the page itself before measuring, which makes it automatic.
 const full = document.getElementById('full');
+const exitButton = document.getElementById('exit');
+const hint = document.getElementById('hint');
 const root = document.documentElement;
 const request = root.requestFullscreen || root.webkitRequestFullscreen;
+const exit = document.exitFullscreen || document.webkitExitFullscreen;
 const isFull = () => document.fullscreenElement || document.webkitFullscreenElement;
+
+function enterFull() {
+  if (!request || isFull()) return;
+  // The prefixed WebKit call returns nothing; the standard one returns a promise.
+  const result = request.call(root);
+  if (result && result.catch) result.catch(() => {});
+}
+
+function leaveFull() {
+  if (!exit || !isFull()) return;
+  const result = exit.call(document);
+  if (result && result.catch) result.catch(() => {});
+}
+
 if (request) {
   full.style.display = 'inline-block';
-  full.addEventListener('click', () => {
-    // The prefixed WebKit call returns nothing; the standard one returns a promise.
-    const result = request.call(root);
-    if (result && result.catch) result.catch(() => {});
-  });
-  const sync = () => { full.style.display = isFull() ? 'none' : 'inline-block'; setTimeout(hello, 300); };
+  full.addEventListener('click', enterFull);
+  exitButton.addEventListener('click', ev => { ev.stopPropagation(); leaveFull(); });
+  addEventListener('click', ev => { if (ev.target !== exitButton) enterFull(); });
+  const sync = () => {
+    const on = !!isFull();
+    full.style.display = on ? 'none' : 'inline-block';
+    hint.style.display = on ? 'none' : 'block';
+    exitButton.style.display = on ? 'block' : 'none';
+    setTimeout(hello, 300);
+  };
   document.addEventListener('fullscreenchange', sync);
   document.addEventListener('webkitfullscreenchange', sync);
+} else {
+  hint.style.display = 'none';
 }
 addEventListener('orientationchange', () => setTimeout(hello, 300));
 connect();

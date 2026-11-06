@@ -628,11 +628,11 @@ public sealed class HidPeripheral : IAsyncDisposable
     /// Moves the pointer of one host whatever the current target, so calibration can drive the
     /// tablet while the user's own input stays on this PC. False when that host is not subscribed.
     /// </summary>
-    public async Task<bool> SendMouseToHostAsync(string deviceId, int dx, int dy)
+    public async Task<bool> SendMouseToHostAsync(string deviceId, int dx, int dy, MouseButtons buttons = MouseButtons.None)
     {
         var characteristic = _mouseInput;
         if (characteristic is null) return false;
-        var buffer = CryptographicBuffer.CreateFromByteArray(HidReports.Mouse(MouseButtons.None, dx, dy, 0));
+        var buffer = CryptographicBuffer.CreateFromByteArray(HidReports.Mouse(buttons, dx, dy, 0));
         foreach (var client in characteristic.SubscribedClients)
         {
             if (!string.Equals(client.Session.DeviceId.Id, deviceId, StringComparison.OrdinalIgnoreCase)) continue;

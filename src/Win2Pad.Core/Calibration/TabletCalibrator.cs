@@ -32,6 +32,9 @@ public interface IPointerFeed
 public interface ICalibrationMouse
 {
     Task MoveAsync(int dx, int dy);
+
+    /// <summary>A left click where the pointer is. A real click, so a web page may go full screen on it.</summary>
+    Task ClickAsync() => Task.CompletedTask;
 }
 
 /// <summary>Points the tablet pointer moves per HID count, at one speed.</summary>
@@ -68,6 +71,9 @@ public sealed class TabletCalibrator(ICalibrationMouse mouse, IPointerFeed feed,
 {
     public const int ReportIntervalMs = 15;
     public const int SettleMs = 250;
+
+    /// <summary>Time for Safari to animate into full screen and the page to report its new size.</summary>
+    public const int FullScreenMs = 1200;
     private const int Pin = 32767;
     private const int MaxReports = 2500;
 
@@ -113,6 +119,18 @@ public sealed class TabletCalibrator(ICalibrationMouse mouse, IPointerFeed feed,
         await delay(SettleMs);
         await MoveUntilAsync(0, 4, s => s.Y >= 0.45 * vh, cancellationToken,
             "The page never saw the pointer. Keep Safari in front, the page visible and do not touch the tablet.");
+
+        // Full screen hides Safari's bars, so the measurements use the whole screen and the page
+        // sees the top. A page may only go full screen on a click: give it one. The viewport
+        // changes, so the page is read again; if it stays as it was, calibration goes on as is.
+        if (page.TopBand > 0)
+        {
+            Report("Going full screen", 0.02);
+            await mouse.ClickAsync();
+            await delay(FullScreenMs);
+            page = feed.Page ?? page;
+            (vw, vh) = (page.ViewportWidth, page.ViewportHeight);
+        }
 
         // 2. Horizontal gain at each speed.
         var curve = new List<GainSample>();

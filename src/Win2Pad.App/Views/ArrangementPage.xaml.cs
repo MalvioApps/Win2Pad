@@ -397,6 +397,8 @@ public partial class ArrangementPage : Page
 
     private void OnRefresh(object sender, RoutedEventArgs e) => Reload();
 
+    private void OnLiveView(object sender, RoutedEventArgs e) => App.Current.ShowLiveView();
+
     private void OnBoardSizeChanged(object sender, SizeChangedEventArgs e) => Draw();
 
     private void ShowHint(InfoBarSeverity severity, string message)

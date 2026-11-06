@@ -44,6 +44,12 @@ public static class TabletModels
     /// </summary>
     public const double DefaultSpeedSmoothing = 1.0;
 
+    /// <summary>
+    /// How much a single large move after a pause is accelerated. 1 (not at all) until a fine-tune
+    /// measures it.
+    /// </summary>
+    public const double DefaultEntryRatio = 1.0;
+
     /// <summary>Acceleration headroom left once the curve is followed: moves faster than measured.</summary>
     public const double CurveHeadroom = 1.15;
 

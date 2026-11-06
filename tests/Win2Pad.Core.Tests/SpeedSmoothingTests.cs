@@ -129,3 +129,67 @@ public sealed class SpeedSmoothingTests
         Assert.True(result.FlickError < 0.1, $"flick error {result.FlickError}");
     }
 }
+
+public sealed class EntryRatioTests
+{
+    [Fact]
+    public void The_entry_move_is_shortened_by_the_measured_ratio()
+    {
+        var cal = new PointerCalibration(2000, 1000);
+        var plain = new PointerModel(cal, TabletSide.Bottom);
+        var corrected = new PointerModel(cal, TabletSide.Bottom, entryRatio: 5);
+
+        var along = plain.Enter(0.25)[1];
+        var shortened = corrected.Enter(0.25)[1];
+
+        Assert.Equal((500, 20), (along.Dx, along.Dy));
+        Assert.Equal((100, 4), (shortened.Dx, shortened.Dy));
+        // The model still places the pointer where it is meant to land.
+        Assert.Equal((plain.X, plain.Y), (corrected.X, corrected.Y));
+        // The pin is untouched: it drives into the corner whatever the acceleration.
+        Assert.Equal(plain.Enter(0.25)[0], corrected.Enter(0.25)[0]);
+    }
+
+    [Fact]
+    public void The_fine_tune_measures_how_much_a_single_large_move_is_accelerated()
+    {
+        // The simulated tablet multiplies a 60 or 120-count report by its 2.2 cap.
+        var tablet = new SimulatedTabletForEntry();
+        var result = new TabletCalibrator(tablet, tablet, _ => Task.CompletedTask).RunAsync().GetAwaiter().GetResult();
+        Assert.NotNull(result.EntryRatio);
+        Assert.InRange(result.EntryRatio!.Value, 2.1, 2.3);
+    }
+
+    [Fact]
+    public void A_measured_entry_ratio_reaches_the_pointer_model()
+    {
+        var profile = Win2Pad.Core.Devices.DeviceProfile.FromTablet("id", new Win2Pad.Core.Devices.TabletInfo("iPad", "Apple Inc.", "iPad7,12"));
+        var result = new CalibrationResult(3300, 2500, 1.15, true, 70, [new GainSample(2, 0.33)], 0.33, EntryRatio: 4.8);
+        var options = profile.WithMeasurement(result).ApplyTo(new EdgeOptions());
+        Assert.Equal(4.8, options.EntryRatio);
+        Assert.Equal(4.8, options.CreateModel(TabletSide.Right).EntryRatio);
+    }
+
+    /// <summary>Like the calibrator tests' simulated iPad: slow gain 0.325, up to 2.2x for large reports.</summary>
+    private sealed class SimulatedTabletForEntry : ICalibrationMouse, IPointerFeed
+    {
+        private const int W = 1080, H = 810, Band = 70;
+        private long _sequence;
+        private double _x = 500, _y = 400;
+
+        public PageInfo? Page { get; } = new(810, 1080, W, H - Band);
+        public PointerSample? Latest { get; private set; }
+
+        public Task MoveAsync(int dx, int dy)
+        {
+            var speed = Math.Max(Math.Abs(dx), Math.Abs(dy));
+            var gain = 0.325 * (speed <= 4 ? 1 : Math.Min(2.2, 1 + (speed - 4) / 20.0));
+            var nx = Math.Clamp(_x + dx * gain, 0, W - 1);
+            var ny = Math.Clamp(_y + dy * gain, 0, H - 1);
+            var moved = nx != _x || ny != _y;
+            (_x, _y) = (nx, ny);
+            if (moved && _y >= Band) Latest = new PointerSample(++_sequence, _x, _y - Band);
+            return Task.CompletedTask;
+        }
+    }
+}

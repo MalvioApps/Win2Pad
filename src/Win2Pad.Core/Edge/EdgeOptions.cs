@@ -122,6 +122,9 @@ public sealed record EdgeOptions
     /// </summary>
     public double VerticalMinPushSeconds { get; init; } = 0.08;
 
+    /// <summary>How much a single large move after a pause is accelerated; measured by the fine-tune.</summary>
+    public double EntryRatio { get; init; } = Devices.TabletModels.DefaultEntryRatio;
+
     /// <summary>The pointer model these settings describe, for a tablet on <paramref name="side"/>.</summary>
     public PointerModel CreateModel(TabletSide side)
     {
@@ -137,7 +140,8 @@ public sealed record EdgeOptions
             earlyReturn: vertical,
             returnArmDistance: vertical ? VerticalReturnArm : SideReturnArm,
             speedSmoothing: SpeedSmoothing,
-            minPushSeconds: vertical ? VerticalMinPushSeconds : 0);
+            minPushSeconds: vertical ? VerticalMinPushSeconds : 0,
+            entryRatio: EntryRatio);
     }
 
     /// <summary>Tablet screen size in HID counts at slow speed. Zero means not calibrated.</summary>

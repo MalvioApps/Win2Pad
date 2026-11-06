@@ -1,5 +1,10 @@
 namespace Win2Pad.Core.Edge;
 
+/// <summary>What the live view draws: where the model believes the tablet pointer is, and how close it is to returning.</summary>
+public sealed record LiveEstimate(
+    bool IsRemote, bool IsTracking, TabletSide Side, int Width, int Height, double X, double Y,
+    double Overshoot, int MarginCounts, bool LeftEdge, int ArmCounts, double LastSpeed, double LastRatio);
+
 /// <summary>Switching to the tablet: which monitor, where along its edge, and the moves that place the tablet pointer there.</summary>
 public sealed record EdgeEntry(ScreenRect Monitor, double Fraction, IReadOnlyList<PinMove> Moves);
 
@@ -38,6 +43,27 @@ public sealed class EdgeSwitcher
     public bool IsTracking => _model is not null;
 
     public bool CanSwitch => Options.Enabled && Options.Calibration.IsValid && !Suspended;
+
+    private static EdgeSwitcher? _current;
+
+    /// <summary>The switcher of the running capture session, for the live view; null when none runs.</summary>
+    public static EdgeSwitcher? Current
+    {
+        get => Volatile.Read(ref _current);
+        set => Volatile.Write(ref _current, value);
+    }
+
+    public LiveEstimate Snapshot()
+    {
+        lock (_lock)
+        {
+            var m = _model;
+            var cal = Options.Calibration;
+            return new LiveEstimate(IsRemote, m is not null, Options.EffectiveSide, cal.Width, cal.Height,
+                m?.X ?? 0, m?.Y ?? 0, m?.Overshoot ?? 0, m?.MarginCounts ?? 0, m?.LeftEdge ?? true,
+                m?.ArmCounts ?? 0, m?.LastSpeed ?? 0, m?.LastRatio ?? 1);
+        }
+    }
 
     private static volatile bool _suspended;
 

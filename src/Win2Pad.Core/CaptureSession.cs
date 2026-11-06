@@ -125,7 +125,9 @@ public static class CaptureSession
             log(!options.Enabled ? "  [edge] edge switching disabled"
                 : !options.Calibration.IsValid ? "  [edge] edge switching needs a calibration"
                 : $"  [edge] tablet on the {options.EffectiveSide.ToString().ToLowerInvariant()}{(options.Placement is null ? "" : " of the arranged monitor")}, calibration {options.CalibrationWidth}x{options.CalibrationHeight}");
-            return new EdgeSwitcher(options, new Win32Screens(), Seconds);
+            var created = new EdgeSwitcher(options, new Win32Screens(), Seconds);
+            EdgeSwitcher.Current = created;
+            return created;
         }
 
         // Keystrokes must all be delivered, but pointer motion is coalesced: the hook produces
@@ -365,6 +367,7 @@ public static class CaptureSession
             capture.Stop();
             peripheral.TargetChanged -= OnTargetChanged;
             EdgeOptions.Saved -= OnEdgeSaved;
+            EdgeSwitcher.Current = null;
         }
 
         pumpCancellation.Cancel();

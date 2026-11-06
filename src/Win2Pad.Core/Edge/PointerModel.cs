@@ -66,8 +66,10 @@ public sealed class PointerModel
     public PointerModel(PointerCalibration calibration, TabletSide side, double returnMargin = 0.04,
         double awayFactor = 2.4, double overshootResetSeconds = 0.4, double entryInset = 0.02,
         GainCurve? gainCurve = null, double returnLead = 0, int leadMinSpeed = 4, bool earlyReturn = false,
-        double returnArmDistance = 0, double speedSmoothing = 1.0, double minPushSeconds = 0)
+        double returnArmDistance = 0, double speedSmoothing = 1.0, double minPushSeconds = 0,
+        double entryRatio = 1.0)
     {
+        EntryRatio = Math.Max(0.1, entryRatio);
         _smoother = new SpeedSmoother(speedSmoothing);
         MinPushSeconds = Math.Max(0, minPushSeconds);
         ReturnArmDistance = Math.Max(0, returnArmDistance);
@@ -96,6 +98,16 @@ public sealed class PointerModel
     public bool EarlyReturn { get; }
     public double ReturnArmDistance { get; }
     public double MinPushSeconds { get; }
+
+    /// <summary>
+    /// How many times further than at slow speed a single large move travels after a pause. The
+    /// entry places the pointer with one such move, so it is shortened by this to land where meant.
+    /// </summary>
+    public double EntryRatio { get; }
+
+    /// <summary>The last report's size and the acceleration applied to it, for the live view.</summary>
+    public double LastSpeed { get; private set; }
+    public double LastRatio { get; private set; } = 1;
     public double SpeedSmoothing => _smoother.Smoothing;
 
     private readonly SpeedSmoother _smoother;
@@ -185,6 +197,10 @@ public sealed class PointerModel
 
         Place(x, y);
         LeftEdge = ArmCounts == 0;
+        // The along move is one large report after a pause; the tablet accelerates it by
+        // EntryRatio, so send that much less for it to land where the model places it.
+        if (EntryRatio != 1.0)
+            along = along with { Dx = (int)Math.Round(along.Dx / EntryRatio), Dy = (int)Math.Round(along.Dy / EntryRatio) };
         return [pin, along];
     }
 
@@ -199,6 +215,8 @@ public sealed class PointerModel
         var speed = Math.Sqrt((double)dx * dx + (double)dy * dy);
         var smoothed = _smoother.Next(speed, now);
         var ratio = GainCurve?.Ratio(smoothed) ?? 1.0;
+        LastSpeed = speed;
+        LastRatio = ratio;
         var returned = ReturnMove(dx * ratio, dy * ratio, speed, ratio, now);
         if (now < _armedAt)
         {

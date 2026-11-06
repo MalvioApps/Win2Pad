@@ -80,7 +80,9 @@
 
     <StackPanel Orientation="Horizontal">
       <ui:Button Content="Reset" Icon="{ui:SymbolIcon ArrowReset24}" Click="OnReset" Margin="0,0,8,0" />
-      <ui:Button Content="Refresh screens" Icon="{ui:SymbolIcon ArrowSync24}" Click="OnRefresh" />
+      <ui:Button Content="Refresh screens" Icon="{ui:SymbolIcon ArrowSync24}" Click="OnRefresh" Margin="0,0,8,0" />
+      <ui:Button Content="Live view" Icon="{ui:SymbolIcon Eye24}" Click="OnLiveView"
+                 ToolTip="See where Win2Pad believes the iPad pointer is, live" />
     </StackPanel>
   </StackPanel>
 </Page>

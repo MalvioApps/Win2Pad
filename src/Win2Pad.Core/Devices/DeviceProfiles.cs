@@ -44,6 +44,9 @@ public sealed record DeviceProfile
     /// <summary>How the tablet smooths pointer speed, measured by the fine-tune; null until then.</summary>
     public double? SpeedSmoothing { get; init; }
 
+    /// <summary>How much a single large move is accelerated, measured by the fine-tune; null until then.</summary>
+    public double? EntryRatio { get; init; }
+
     /// <summary>How fast the pointer moves on this tablet, as a multiple of the PC's movement.</summary>
     public double PointerSpeed { get; init; } = 1.0;
 
@@ -87,6 +90,7 @@ public sealed record DeviceProfile
         {
             Source = CalibrationSource.Safari,
             SpeedSmoothing = result.SpeedSmoothing ?? SpeedSmoothing,
+            EntryRatio = result.EntryRatio ?? EntryRatio,
             GainCurve = new GainPoints(Edge.GainCurve.FromGains(result.HorizontalCurve.Select(g => (g.CountsPerReport, g.PointsPerCount))).Points),
             Landscape = result.Landscape,
             LandscapeCalibration = result.Landscape ? measured : turned,
@@ -107,6 +111,7 @@ public sealed record DeviceProfile
             AwayFactor = GainCurve is null ? TabletModels.CurveHeadroom : c.AwayFactor,
             GainCurve = GainCurve ?? TabletModels.DefaultGainCurve,
             SpeedSmoothing = SpeedSmoothing ?? TabletModels.DefaultSpeedSmoothing,
+            EntryRatio = EntryRatio ?? TabletModels.DefaultEntryRatio,
             PointerSpeed = PointerSpeed
         }
         : options;

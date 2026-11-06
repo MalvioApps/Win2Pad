@@ -46,7 +46,8 @@ public sealed record CalibrationResult(
     IReadOnlyList<GainSample> HorizontalCurve,
     double VerticalGain,
     double? SpeedSmoothing = null,
-    double? FlickError = null)
+    double? FlickError = null,
+    double? EntryRatio = null)
 {
     public double SlowGain => HorizontalCurve.Min(s => s.PointsPerCount);
 }
@@ -76,6 +77,9 @@ public sealed class TabletCalibrator(ICalibrationMouse mouse, IPointerFeed feed,
     /// How far each really goes, against the steady-speed curve, shows how the tablet smooths
     /// speed before accelerating.
     /// </summary>
+    /// <summary>Sizes of the single large moves measured; small enough not to reach the right edge.</summary>
+    public static readonly int[] EntryMoves = [60, 120];
+
     public static readonly int[][] Flicks =
     [
         [2, 4, 8, 16, 32, 32, 16, 8, 4, 2],
@@ -90,7 +94,7 @@ public sealed class TabletCalibrator(ICalibrationMouse mouse, IPointerFeed feed,
     {
         var page = feed.Page ?? throw new CalibrationException("The calibration page is not open on the tablet.");
         int vw = page.ViewportWidth, vh = page.ViewportHeight;
-        var steps = Speeds.Length + 3;
+        var steps = Speeds.Length + 4;
 
         // 1. Into the page: pin top-left (inside the status bar, where the page cannot see it),
         //    then step down slowly until the page reports the pointer, and on to mid-height.
@@ -152,6 +156,22 @@ public sealed class TabletCalibrator(ICalibrationMouse mouse, IPointerFeed feed,
         var gainCurve = GainCurve.FromGains(curve.Select(g => (g.CountsPerReport, g.PointsPerCount)));
         (double Smoothing, double Error)? fit = flicks.Count >= 2 ? gainCurve.FitSmoothing(flicks) : null;
 
+        // 5. Single large moves after a pause: the entry places the pointer with one of these.
+        Report("Measuring a single large move", (Speeds.Length + 3.0) / steps);
+        var entryRatios = new List<double>();
+        foreach (var size in EntryMoves)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            await mouse.MoveAsync(-Pin, 0);
+            await delay(SettleMs);
+            var start = Current("lost the pointer before a large move");
+            await mouse.MoveAsync(size, 0);
+            await delay(SettleMs);
+            var end = Current("lost the pointer after a large move");
+            if (end.X < vw - 2) entryRatios.Add((end.X - start.X) / (size * slow));
+        }
+        double? entryRatio = entryRatios.Count > 0 ? Math.Round(entryRatios.Average(), 3) : null;
+
         // A little headroom over the fastest measured gain: real hand movements can be faster still.
         var away = Math.Clamp(fast / slow * 1.15, 1.0, 6.0);
         Report("Done", 1);
@@ -164,7 +184,8 @@ public sealed class TabletCalibrator(ICalibrationMouse mouse, IPointerFeed feed,
             curve,
             verticalGain,
             fit?.Smoothing,
-            fit is { } f ? Math.Round(f.Error, 3) : null);
+            fit is { } f ? Math.Round(f.Error, 3) : null,
+            entryRatio);
     }
 
     /// <summary>

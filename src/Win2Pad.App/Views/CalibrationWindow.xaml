@@ -35,7 +35,7 @@
 
         <ui:TextBlock TextWrapping="Wrap" Margin="0,0,0,4" Text="1. On the iPad, scan the code with the Camera app and open the page in Safari. Both must be on the same Wi-Fi." />
         <ui:TextBlock TextWrapping="Wrap" Margin="0,0,0,4" Text="2. If Windows asks about network access, allow it on private networks." />
-        <ui:TextBlock TextWrapping="Wrap" Margin="0,0,0,16" Text="3. Leave the page in front, don't touch the iPad, and press Start. It takes about 20 seconds." />
+        <ui:TextBlock TextWrapping="Wrap" Margin="0,0,0,16" Text="3. Leave the page in front and don't touch the iPad: it starts by itself and takes about 30 seconds." />
 
         <ui:InfoBar x:Name="StatusBar" IsOpen="True" IsClosable="False" Severity="Informational"
                     Title="Waiting for the iPad" Message="Open the page on the iPad." Margin="0,0,0,12" />

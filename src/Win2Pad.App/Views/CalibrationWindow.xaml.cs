@@ -19,6 +19,8 @@ public partial class CalibrationWindow : FluentWindow
 {
     private CalibrationServer? _server;
     private CancellationTokenSource? _run;
+    private CancellationTokenSource? _countdown;
+    private bool _autoStarted;
 
     private readonly string? _deviceId;
 
@@ -54,19 +56,50 @@ public partial class CalibrationWindow : FluentWindow
         if (_server.PageConnected && _server.Page is { } page)
         {
             ShowStatus(InfoBarSeverity.Success, "The iPad is ready",
-                $"{page.Width}×{page.Height} points, {(page.Landscape ? "landscape" : "portrait")}. Press Start.");
+                $"{page.Width}×{page.Height} points, {(page.Landscape ? "landscape" : "portrait")}. Starting by itself…");
             StartButton.IsEnabled = true;
+            _ = StartAfterCountdownAsync();
         }
         else
         {
+            _countdown?.Cancel();
             ShowStatus(InfoBarSeverity.Informational, "Waiting for the iPad", "Open the page on the iPad.");
             StartButton.IsEnabled = false;
         }
     }
 
+    /// <summary>
+    /// Scanning the code is the user's go-ahead: once the page is open the measurement starts by
+    /// itself, after a short countdown on the iPad so it can be put down.
+    /// </summary>
+    private async Task StartAfterCountdownAsync()
+    {
+        // Once per window: the page reports again on every resize, and a finished or failed run
+        // must not restart by itself. Start is there to measure again.
+        if (_server is null || _run is not null || _countdown is not null || _autoStarted) return;
+        _autoStarted = true;
+        _countdown = new CancellationTokenSource();
+        var token = _countdown.Token;
+        try
+        {
+            for (var left = 3; left > 0; left--)
+            {
+                await _server.SendStatusAsync($"Starting in {left}… don't touch the iPad", 0);
+                await Task.Delay(1000, token);
+            }
+            OnStart(this, new RoutedEventArgs());
+        }
+        catch (OperationCanceledException) { }
+        finally
+        {
+            _countdown = null;
+        }
+    }
+
     private async void OnStart(object sender, RoutedEventArgs e)
     {
-        if (_server is null) return;
+        if (_server is null || _run is not null) return;
+        _countdown?.Cancel();
         var service = PeripheralService.Instance;
         var peripheral = service.Peripheral;
         var host = _deviceId is null
@@ -102,6 +135,7 @@ public partial class CalibrationWindow : FluentWindow
                 $"{result.Width}×{result.Height} counts ({(result.Landscape ? "landscape" : "portrait")}), " +
                 $"pointer acceleration up to {acceleration:0.0}×" +
                 (result.FlickError is { } error ? $", quick movements predicted within {error:P0}" : "") +
+                (result.EntryRatio is { } entry ? $", a single large move travels {entry:0.0}×" : "") +
                 ". Saved for this iPad.");
             await _server.SendStatusAsync("Done - you can close this page", 1, "done");
         }
@@ -126,6 +160,7 @@ public partial class CalibrationWindow : FluentWindow
 
     private async void OnClosed(object? sender, EventArgs e)
     {
+        _countdown?.Cancel();
         _run?.Cancel();
         EdgeSwitcher.Suspended = false;
         if (_server is not null) await _server.DisposeAsync();

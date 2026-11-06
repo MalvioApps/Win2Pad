@@ -94,6 +94,20 @@ public partial class App : Application
             Tray?.ShowMessage($"Win2Pad {version} is downloaded. It installs when Win2Pad closes, or restart it from Settings.");
     }
 
+    private LiveViewWindow? _liveView;
+
+    /// <summary>One live view at a time; opening it again brings it to the front.</summary>
+    public void ShowLiveView()
+    {
+        if (_liveView is null)
+        {
+            _liveView = new LiveViewWindow();
+            _liveView.Closed += (_, _) => _liveView = null;
+            _liveView.Show();
+        }
+        _liveView.Activate();
+    }
+
     private void UpdateLinkState()
     {
         var peripheral = PeripheralService.Instance;
@@ -131,12 +145,16 @@ public partial class App : Application
             new Views.CalibrationWindow { Owner = MainWindow }.ShowDialog();
         });
 
+        var live = new System.Windows.Forms.ToolStripMenuItem("Live view");
+        live.Click += (_, _) => Dispatcher.Invoke(ShowLiveView);
+
         var report = new System.Windows.Forms.ToolStripMenuItem("Report a problem…");
         report.Click += (_, _) => ProjectLinks.Open(ProjectLinks.NewIssue());
 
         menu.Items.Add(indicator);
         menu.Items.Add(portrait);
         menu.Items.Add(fineTune);
+        menu.Items.Add(live);
         menu.Items.Add(new System.Windows.Forms.ToolStripSeparator());
         menu.Items.Add(report);
         menu.Opening += (_, _) =>

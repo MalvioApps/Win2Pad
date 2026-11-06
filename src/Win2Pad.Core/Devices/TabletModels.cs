@@ -31,11 +31,12 @@ public static class TabletModels
     /// <summary>
     /// iPadOS pointer acceleration at the default tracking speed, measured with the Safari
     /// calibration on an iPad (7th generation): a 32-count report travels 5.35 times as far as a
-    /// slow one. Assumed to hold for every model, like the gain; a fine-tune replaces it.
+    /// slow one, and single reports of 60 to 120 counts about 10.7 times. Assumed to hold for
+    /// every model, like the gain; a fine-tune replaces it.
     /// </summary>
     public static GainPoints DefaultGainCurve =>
     [
-        new(2, 1.0), new(4, 1.283), new(8, 1.852), new(16, 3.002), new(32, 5.35)
+        new(2, 1.0), new(4, 1.283), new(8, 1.852), new(16, 3.002), new(32, 5.35), new(85, 10.747)
     ];
 
     /// <summary>

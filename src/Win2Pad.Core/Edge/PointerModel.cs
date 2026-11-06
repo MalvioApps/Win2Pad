@@ -197,11 +197,32 @@ public sealed class PointerModel
 
         Place(x, y);
         LeftEdge = ArmCounts == 0;
-        // The along move is one large report after a pause; the tablet accelerates it by
-        // EntryRatio, so send that much less for it to land where the model places it.
-        if (EntryRatio != 1.0)
-            along = along with { Dx = (int)Math.Round(along.Dx / EntryRatio), Dy = (int)Math.Round(along.Dy / EntryRatio) };
+        // The along move is one large report after a pause, and the tablet accelerates it by its
+        // size: send the size that travels the intended distance once accelerated.
+        var scale = EntryScale(Math.Sqrt((double)along.Dx * along.Dx + (double)along.Dy * along.Dy));
+        if (scale != 1.0)
+            along = along with { Dx = (int)Math.Round(along.Dx * scale), Dy = (int)Math.Round(along.Dy * scale) };
         return [pin, along];
+    }
+
+    /// <summary>
+    /// The factor to shrink a move of <paramref name="distance"/> slow-speed counts by so that,
+    /// sent as one report, it travels that distance. With a curve, the report size whose
+    /// acceleration makes up the distance (found by bisection: travel grows with size); without
+    /// one, the measured ratio of a single large move.
+    /// </summary>
+    internal double EntryScale(double distance)
+    {
+        if (distance < 1) return 1.0;
+        if (GainCurve is null) return 1.0 / EntryRatio;
+        double lo = 0, hi = distance;
+        for (var i = 0; i < 40; i++)
+        {
+            var mid = (lo + hi) / 2;
+            if (mid * GainCurve.Ratio(mid) < distance) lo = mid;
+            else hi = mid;
+        }
+        return hi / distance;
     }
 
     /// <summary>Where the pointer is along the return edge, from 0 to 1.</summary>

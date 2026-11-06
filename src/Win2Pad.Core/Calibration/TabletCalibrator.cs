@@ -47,9 +47,14 @@ public sealed record CalibrationResult(
     double VerticalGain,
     double? SpeedSmoothing = null,
     double? FlickError = null,
-    double? EntryRatio = null)
+    double? EntryRatio = null,
+    IReadOnlyList<GainSample>? LargeMoves = null)
 {
     public double SlowGain => HorizontalCurve.Min(s => s.PointsPerCount);
+
+    /// <summary>The whole acceleration curve: steady speeds and single large reports together.</summary>
+    public IEnumerable<GainSample> FullCurve =>
+        HorizontalCurve.Concat((LargeMoves ?? []).Where(l => HorizontalCurve.All(h => h.CountsPerReport != l.CountsPerReport)));
 }
 
 /// <summary>
@@ -77,8 +82,13 @@ public sealed class TabletCalibrator(ICalibrationMouse mouse, IPointerFeed feed,
     /// How far each really goes, against the steady-speed curve, shows how the tablet smooths
     /// speed before accelerating.
     /// </summary>
-    /// <summary>Sizes of the single large moves measured; small enough not to reach the right edge.</summary>
-    public static readonly int[] EntryMoves = [60, 120];
+    /// <summary>
+    /// Sizes of the single large reports measured. The tablet keeps accelerating well past the
+    /// steady-speed curve's 32 counts (about 11x for 100 counts on an iPad 7), and real use
+    /// produces such reports: motion that piles up during the entry pauses, or a fast hand.
+    /// Small enough that none reaches the right edge from the left.
+    /// </summary>
+    public static readonly int[] EntryMoves = [48, 64, 96, 128, 192];
 
     public static readonly int[][] Flicks =
     [
@@ -159,6 +169,7 @@ public sealed class TabletCalibrator(ICalibrationMouse mouse, IPointerFeed feed,
         // 5. Single large moves after a pause: the entry places the pointer with one of these.
         Report("Measuring a single large move", (Speeds.Length + 3.0) / steps);
         var entryRatios = new List<double>();
+        var largeMoves = new List<GainSample>();
         foreach (var size in EntryMoves)
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -168,7 +179,9 @@ public sealed class TabletCalibrator(ICalibrationMouse mouse, IPointerFeed feed,
             await mouse.MoveAsync(size, 0);
             await delay(SettleMs);
             var end = Current("lost the pointer after a large move");
-            if (end.X < vw - 2) entryRatios.Add((end.X - start.X) / (size * slow));
+            if (end.X >= vw - 2) continue;
+            entryRatios.Add((end.X - start.X) / (size * slow));
+            largeMoves.Add(new GainSample(size, (end.X - start.X) / size));
         }
         double? entryRatio = entryRatios.Count > 0 ? Math.Round(entryRatios.Average(), 3) : null;
 
@@ -185,7 +198,8 @@ public sealed class TabletCalibrator(ICalibrationMouse mouse, IPointerFeed feed,
             verticalGain,
             fit?.Smoothing,
             fit is { } f ? Math.Round(f.Error, 3) : null,
-            entryRatio);
+            entryRatio,
+            largeMoves);
     }
 
     /// <summary>

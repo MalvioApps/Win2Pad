@@ -91,7 +91,7 @@ public sealed record DeviceProfile
             Source = CalibrationSource.Safari,
             SpeedSmoothing = result.SpeedSmoothing ?? SpeedSmoothing,
             EntryRatio = result.EntryRatio ?? EntryRatio,
-            GainCurve = new GainPoints(Edge.GainCurve.FromGains(result.HorizontalCurve.Select(g => (g.CountsPerReport, g.PointsPerCount))).Points),
+            GainCurve = new GainPoints(Edge.GainCurve.FromGains(result.FullCurve.Select(g => (g.CountsPerReport, g.PointsPerCount))).Points),
             Landscape = result.Landscape,
             LandscapeCalibration = result.Landscape ? measured : turned,
             PortraitCalibration = result.Landscape ? turned : measured
@@ -109,12 +109,23 @@ public sealed record DeviceProfile
             CalibrationWidth = c.Width,
             CalibrationHeight = c.Height,
             AwayFactor = GainCurve is null ? TabletModels.CurveHeadroom : c.AwayFactor,
-            GainCurve = GainCurve ?? TabletModels.DefaultGainCurve,
+            GainCurve = WithLargeMoves(GainCurve ?? TabletModels.DefaultGainCurve, EntryRatio),
             SpeedSmoothing = SpeedSmoothing ?? TabletModels.DefaultSpeedSmoothing,
             EntryRatio = EntryRatio ?? TabletModels.DefaultEntryRatio,
             PointerSpeed = PointerSpeed
         }
         : options;
+
+    /// <summary>
+    /// A curve measured before large reports were part of it stops at 32 counts, so every larger
+    /// report was taken as 5.35x when the tablet moves it about 11x. The single large move the
+    /// same fine-tune measured fills that end in.
+    /// </summary>
+    internal static GainPoints WithLargeMoves(GainPoints curve, double? entryRatio)
+    {
+        if (entryRatio is not { } ratio || curve.Count == 0 || curve.Max(p => p.CountsPerReport) > 32) return curve;
+        return new GainPoints(curve.Append(new GainPoint(85, ratio)));
+    }
 
     private static OrientationCalibration From(PointerCalibration c, double away) => new(c.Width, c.Height, away);
 }

@@ -45,6 +45,8 @@ ningún accesorio.
   Bluetooth de verdad: QWERTY, QWERTZ, AZERTY, Dvorak, japonés o brasileño, con la `ñ`, los acentos y AltGr.
 - **Se actualiza solo** y puede arrancar con Windows.
 
+Lo que viene a continuación está en el [roadmap](ROADMAP.md) (en inglés).
+
 ## Requisitos
 
 - Windows 10 versión 2004 o posterior, o Windows 11.

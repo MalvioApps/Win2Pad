@@ -42,6 +42,8 @@ hardware to buy.
   QWERTZ, AZERTY, Dvorak, Japanese and Brazilian keyboards all work, AltGr included.
 - **Updates itself** and can start with Windows.
 
+See what is coming next in the [roadmap](ROADMAP.md).
+
 ## Requirements
 
 - Windows 10 version 2004 or later, or Windows 11.

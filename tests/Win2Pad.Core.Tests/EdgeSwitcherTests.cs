@@ -226,7 +226,9 @@ public sealed class EdgeSwitcherTests
         _now += 2;
         switcher.OnRemoteMotion(0, 300);
         switcher.OnRemoteMotion(-5000, 0);
-        var back = switcher.OnRemoteMotion(0, -5000);
+        Assert.Null(switcher.OnRemoteMotion(0, -5000)); // at the top: a push has to last
+        _now += 0.1;
+        var back = switcher.OnRemoteMotion(0, -50);
         Assert.Equal((0, 1079 - 8), back);
     }
 

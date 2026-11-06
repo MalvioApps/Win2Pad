@@ -1,3 +1,5 @@
+using Win2Pad.Core.Edge;
+
 namespace Win2Pad.Core.Calibration;
 
 /// <summary>What the calibration page reports about itself, in CSS pixels (iPad points).</summary>
@@ -42,7 +44,9 @@ public sealed record CalibrationResult(
     bool Landscape,
     int TopBandPoints,
     IReadOnlyList<GainSample> HorizontalCurve,
-    double VerticalGain)
+    double VerticalGain,
+    double? SpeedSmoothing = null,
+    double? FlickError = null)
 {
     public double SlowGain => HorizontalCurve.Min(s => s.PointsPerCount);
 }
@@ -67,13 +71,26 @@ public sealed class TabletCalibrator(ICalibrationMouse mouse, IPointerFeed feed,
     /// <summary>Share of the viewport each measurement travels: long enough for 1 px to be under 0.5%.</summary>
     private const double Travel = 0.3;
 
+    /// <summary>
+    /// Quick gestures like a hand makes: speeding up and slowing down, a burst, a fast start.
+    /// How far each really goes, against the steady-speed curve, shows how the tablet smooths
+    /// speed before accelerating.
+    /// </summary>
+    public static readonly int[][] Flicks =
+    [
+        [2, 4, 8, 16, 32, 32, 16, 8, 4, 2],
+        [32, 32, 32, 32, 32, 32],
+        [4, 8, 16, 24, 32, 32],
+        [16, 16, 2, 2, 16, 16],
+    ];
+
     public event Action<string, double>? Progress;
 
     public async Task<CalibrationResult> RunAsync(CancellationToken cancellationToken = default)
     {
         var page = feed.Page ?? throw new CalibrationException("The calibration page is not open on the tablet.");
         int vw = page.ViewportWidth, vh = page.ViewportHeight;
-        var steps = Speeds.Length + 2;
+        var steps = Speeds.Length + 3;
 
         // 1. Into the page: pin top-left (inside the status bar, where the page cannot see it),
         //    then step down slowly until the page reports the pointer, and on to mid-height.
@@ -113,6 +130,28 @@ public sealed class TabletCalibrator(ICalibrationMouse mouse, IPointerFeed feed,
         var fast = curve.Max(s => s.PointsPerCount);
         if (slow <= 0 || verticalGain <= 0) throw new CalibrationException("The measured movement was not plausible.");
 
+        // 4. Quick gestures, to learn how the tablet smooths speed before accelerating.
+        Report("Measuring quick movements", (Speeds.Length + 2.0) / steps);
+        var flicks = new List<(int[] Reports, double Travelled)>();
+        foreach (var flick in Flicks)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            await mouse.MoveAsync(-Pin, 0);
+            await delay(SettleMs);
+            var start = Current("lost the pointer before a quick movement");
+            foreach (var counts in flick)
+            {
+                await mouse.MoveAsync(counts, 0);
+                await delay(ReportIntervalMs);
+            }
+            await delay(SettleMs);
+            var end = Current("lost the pointer during a quick movement");
+            // A flick that hit the right edge says nothing about how far it would have gone.
+            if (end.X < vw - 2) flicks.Add((flick, (end.X - start.X) / slow));
+        }
+        var gainCurve = GainCurve.FromGains(curve.Select(g => (g.CountsPerReport, g.PointsPerCount)));
+        (double Smoothing, double Error)? fit = flicks.Count >= 2 ? gainCurve.FitSmoothing(flicks) : null;
+
         // A little headroom over the fastest measured gain: real hand movements can be faster still.
         var away = Math.Clamp(fast / slow * 1.15, 1.0, 6.0);
         Report("Done", 1);
@@ -123,7 +162,9 @@ public sealed class TabletCalibrator(ICalibrationMouse mouse, IPointerFeed feed,
             page.Landscape,
             page.TopBand,
             curve,
-            verticalGain);
+            verticalGain,
+            fit?.Smoothing,
+            fit is { } f ? Math.Round(f.Error, 3) : null);
     }
 
     /// <summary>

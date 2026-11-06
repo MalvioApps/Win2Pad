@@ -50,6 +50,14 @@ public sealed class PointerModel
     /// pointer is pushed against the edge, so being pulled back a little early is the lesser evil.
     /// Moves towards the edge then count up to <see cref="TowardFactor"/> times, moves away once.
     /// </param>
+    /// <param name="speedSmoothing">
+    /// How the tablet smooths pointer speed before accelerating (see <see cref="SpeedSmoother"/>);
+    /// 1 applies the curve to each report on its own.
+    /// </param>
+    /// <param name="minPushSeconds">
+    /// How long the push past the edge must last. A return push is sustained; a quick move that
+    /// only seems to reach the edge because the estimate ran ahead is not.
+    /// </param>
     /// <param name="returnArmDistance">
     /// Share of the tablet the pointer must first move away from the return edge, after entering,
     /// before pushing back out can return. The pointer enters right next to that edge, so without
@@ -58,8 +66,10 @@ public sealed class PointerModel
     public PointerModel(PointerCalibration calibration, TabletSide side, double returnMargin = 0.04,
         double awayFactor = 2.4, double overshootResetSeconds = 0.4, double entryInset = 0.02,
         GainCurve? gainCurve = null, double returnLead = 0, int leadMinSpeed = 4, bool earlyReturn = false,
-        double returnArmDistance = 0)
+        double returnArmDistance = 0, double speedSmoothing = 1.0, double minPushSeconds = 0)
     {
+        _smoother = new SpeedSmoother(speedSmoothing);
+        MinPushSeconds = Math.Max(0, minPushSeconds);
         ReturnArmDistance = Math.Max(0, returnArmDistance);
         EarlyReturn = earlyReturn;
         GainCurve = gainCurve;
@@ -85,6 +95,11 @@ public sealed class PointerModel
     public int LeadMinSpeed { get; }
     public bool EarlyReturn { get; }
     public double ReturnArmDistance { get; }
+    public double MinPushSeconds { get; }
+    public double SpeedSmoothing => _smoother.Smoothing;
+
+    private readonly SpeedSmoother _smoother;
+    private double _pushStarted;
 
     /// <summary>How far from the return edge the pointer must get before it can return, in counts.</summary>
     public int ArmCounts => (int)Math.Round(ReturnArmDistance * ReturnExtent);
@@ -182,7 +197,8 @@ public sealed class PointerModel
         // Scale the report by the tablet's acceleration at its speed, so the estimate travels as
         // far as the real pointer did.
         var speed = Math.Sqrt((double)dx * dx + (double)dy * dy);
-        var ratio = GainCurve?.Ratio(speed) ?? 1.0;
+        var smoothed = _smoother.Next(speed, now);
+        var ratio = GainCurve?.Ratio(smoothed) ?? 1.0;
         var returned = ReturnMove(dx * ratio, dy * ratio, speed, ratio, now);
         if (now < _armedAt)
         {
@@ -273,6 +289,7 @@ public sealed class PointerModel
         if (beyond > 0)
         {
             var keep = atEdge && now - _lastPush <= OvershootResetSeconds;
+            if (!keep) _pushStarted = now;
             Overshoot = (keep ? Overshoot : 0) + beyond;
             _lastPush = now;
         }
@@ -280,7 +297,7 @@ public sealed class PointerModel
         {
             Overshoot = 0;
         }
-        return Overshoot > MarginCounts;
+        return Overshoot > MarginCounts && now - _pushStarted >= MinPushSeconds;
     }
 }
 

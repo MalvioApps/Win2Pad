@@ -100,7 +100,9 @@ public partial class CalibrationWindow : FluentWindow
             var acceleration = result.HorizontalCurve.Max(s => s.PointsPerCount) / result.SlowGain;
             ShowStatus(InfoBarSeverity.Success, "Calibrated",
                 $"{result.Width}×{result.Height} counts ({(result.Landscape ? "landscape" : "portrait")}), " +
-                $"pointer acceleration up to {acceleration:0.0}×. Saved for this iPad.");
+                $"pointer acceleration up to {acceleration:0.0}×" +
+                (result.FlickError is { } error ? $", quick movements predicted within {error:P0}" : "") +
+                ". Saved for this iPad.");
             await _server.SendStatusAsync("Done - you can close this page", 1, "done");
         }
         catch (OperationCanceledException)

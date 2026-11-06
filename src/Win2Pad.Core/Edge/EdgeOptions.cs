@@ -113,6 +113,15 @@ public sealed record EdgeOptions
     /// </summary>
     public double ReturnPushScale { get; init; } = 1.0;
 
+    /// <summary>How the tablet smooths pointer speed before accelerating; measured by the fine-tune.</summary>
+    public double SpeedSmoothing { get; init; } = Devices.TabletModels.DefaultSpeedSmoothing;
+
+    /// <summary>
+    /// At the top and bottom, how long the push past the edge must last before returning, so a
+    /// quick move that only seems to reach the edge does not bring the pointer back mid-screen.
+    /// </summary>
+    public double VerticalMinPushSeconds { get; init; } = 0.08;
+
     /// <summary>The pointer model these settings describe, for a tablet on <paramref name="side"/>.</summary>
     public PointerModel CreateModel(TabletSide side)
     {
@@ -126,7 +135,9 @@ public sealed record EdgeOptions
             returnLead: vertical ? VerticalReturnLead : 0,
             leadMinSpeed: LeadMinSpeed,
             earlyReturn: vertical,
-            returnArmDistance: vertical ? VerticalReturnArm : SideReturnArm);
+            returnArmDistance: vertical ? VerticalReturnArm : SideReturnArm,
+            speedSmoothing: SpeedSmoothing,
+            minPushSeconds: vertical ? VerticalMinPushSeconds : 0);
     }
 
     /// <summary>Tablet screen size in HID counts at slow speed. Zero means not calibrated.</summary>

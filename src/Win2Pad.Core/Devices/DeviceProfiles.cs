@@ -41,6 +41,9 @@ public sealed record DeviceProfile
     /// <summary>The pointer acceleration measured with Safari; null until fine-tuned.</summary>
     public GainPoints? GainCurve { get; init; }
 
+    /// <summary>How the tablet smooths pointer speed, measured by the fine-tune; null until then.</summary>
+    public double? SpeedSmoothing { get; init; }
+
     /// <summary>How fast the pointer moves on this tablet, as a multiple of the PC's movement.</summary>
     public double PointerSpeed { get; init; } = 1.0;
 
@@ -83,6 +86,7 @@ public sealed record DeviceProfile
         return this with
         {
             Source = CalibrationSource.Safari,
+            SpeedSmoothing = result.SpeedSmoothing ?? SpeedSmoothing,
             GainCurve = new GainPoints(Edge.GainCurve.FromGains(result.HorizontalCurve.Select(g => (g.CountsPerReport, g.PointsPerCount))).Points),
             Landscape = result.Landscape,
             LandscapeCalibration = result.Landscape ? measured : turned,
@@ -102,6 +106,7 @@ public sealed record DeviceProfile
             CalibrationHeight = c.Height,
             AwayFactor = GainCurve is null ? TabletModels.CurveHeadroom : c.AwayFactor,
             GainCurve = GainCurve ?? TabletModels.DefaultGainCurve,
+            SpeedSmoothing = SpeedSmoothing ?? TabletModels.DefaultSpeedSmoothing,
             PointerSpeed = PointerSpeed
         }
         : options;

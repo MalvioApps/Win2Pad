@@ -38,6 +38,12 @@ public static class TabletModels
         new(2, 1.0), new(4, 1.283), new(8, 1.852), new(16, 3.002), new(32, 5.35)
     ];
 
+    /// <summary>
+    /// How iPadOS smooths pointer speed before accelerating. 1 (no smoothing) until a fine-tune
+    /// with flick measurements gives a real value.
+    /// </summary>
+    public const double DefaultSpeedSmoothing = 1.0;
+
     /// <summary>Acceleration headroom left once the curve is followed: moves faster than measured.</summary>
     public const double CurveHeadroom = 1.15;
 

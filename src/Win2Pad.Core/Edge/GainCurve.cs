@@ -44,6 +44,42 @@ public sealed class GainCurve
         return _points[^1].Ratio;
     }
 
+    /// <summary>
+    /// How far a run of reports, sent one per <see cref="SpeedSmoother.ReportSeconds"/>, travels in
+    /// slow-speed counts, when the tablet accelerates by a speed smoothed with
+    /// <paramref name="smoothing"/>.
+    /// </summary>
+    public double PredictTravel(IEnumerable<int> reports, double smoothing)
+    {
+        var smoother = new SpeedSmoother(smoothing);
+        var travel = 0.0;
+        var now = 0.0;
+        foreach (var counts in reports)
+        {
+            travel += counts * Ratio(smoother.Next(Math.Abs(counts), now));
+            now += SpeedSmoother.ReportSeconds;
+        }
+        return travel;
+    }
+
+    /// <summary>
+    /// The smoothing that best explains measured flicks: each is a run of reports and how far it
+    /// really travelled, in slow-speed counts. Picks the value with the least relative error, from
+    /// 0.1 (heavily smoothed: acceleration builds up slowly) to 1 (none: every report on its own),
+    /// and reports that error as a share.
+    /// </summary>
+    public (double Smoothing, double Error) FitSmoothing(IReadOnlyList<(int[] Reports, double Travelled)> flicks)
+    {
+        var best = (Smoothing: 1.0, Error: double.MaxValue);
+        for (var step = 2; step <= 20; step++)
+        {
+            var smoothing = step / 20.0;
+            var error = flicks.Average(f => Math.Abs(PredictTravel(f.Reports, smoothing) - f.Travelled) / Math.Max(1, f.Travelled));
+            if (error < best.Error - 1e-9) best = (smoothing, error);
+        }
+        return best;
+    }
+
     /// <summary>A curve from measured gains, normalised so the slowest is 1.</summary>
     public static GainCurve FromGains(IEnumerable<(int CountsPerReport, double PointsPerCount)> gains)
     {
@@ -70,5 +106,33 @@ public sealed class GainPoints : List<GainPoint>
         var hash = new HashCode();
         foreach (var point in this) hash.Add(point);
         return hash.ToHashCode();
+    }
+}
+
+/// <summary>
+/// The speed a tablet accelerates by: not each report's own size but a running average, as
+/// iPadOS (like macOS) smooths pointer velocity. At the start of a quick flick the average is
+/// still low, so the tablet accelerates less than a steady move at the same speed would.
+/// </summary>
+public sealed class SpeedSmoother(double smoothing)
+{
+    /// <summary>The report pacing the curve was measured at.</summary>
+    public const double ReportSeconds = 0.015;
+
+    /// <summary>A pause longer than this means the hand stopped; the average starts again from rest.</summary>
+    public const double IdleSeconds = 0.06;
+
+    private double _speed;
+    private double _last = double.NegativeInfinity;
+
+    /// <summary>1 means no smoothing; smaller values weigh the past more.</summary>
+    public double Smoothing { get; } = Math.Clamp(smoothing, 0.05, 1.0);
+
+    public double Next(double speed, double now)
+    {
+        if (now - _last > IdleSeconds) _speed = 0;
+        _last = now;
+        _speed = Smoothing * speed + (1 - Smoothing) * _speed;
+        return _speed;
     }
 }

@@ -133,8 +133,8 @@ public sealed class AccelerationTests
         model.Move(0, 60, 1.0);                  // y = 80
 
         var returned = false;
-        for (var i = 0; i < 12 && !returned; i++) returned = model.Move(0, -10, 1.1 + i * 0.015);
-        Assert.True(returned);                   // 80 to the edge, then past the 30-count margin
+        for (var i = 0; i < 20 && !returned; i++) returned = model.Move(0, -10, 1.1 + i * 0.015);
+        Assert.True(returned);                   // 80 to the edge, then 30 past it for at least 80 ms
     }
 
     [Fact]
@@ -148,7 +148,7 @@ public sealed class AccelerationTests
         // The push is measured as the hand made it (the 1.3x bias and acceleration taken out).
         Assert.False(model.Move(0, -15, 1.1));   // 15 past, under 30
         Assert.False(model.Move(0, -15, 2.0));   // after a pause: counting from zero again
-        Assert.True(model.Move(0, -20, 2.05));   // 15 + 20 = 35 past, within the reset window
+        Assert.True(model.Move(0, -20, 2.09));   // 15 + 20 = 35 past, sustained for 90 ms
     }
 
     [Fact]
@@ -172,7 +172,8 @@ public sealed class AccelerationTests
         model.Enter(0.5);
         model.Move(0, 100, 1.0);                            // y = 120: past the 80-count arm
         Assert.True(model.LeftEdge);
-        Assert.True(model.Move(0, -200, 1.1));              // 120 up to the edge, then 46 real past it
+        Assert.False(model.Move(0, -200, 1.1));             // 120 up to the edge, then 46 real past it...
+        Assert.True(model.Move(0, -10, 1.2));               // ...and still pushing 100 ms later
     }
 
     [Fact]

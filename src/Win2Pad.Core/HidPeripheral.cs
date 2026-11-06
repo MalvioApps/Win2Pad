@@ -42,6 +42,8 @@ public sealed class HidPeripheral : IAsyncDisposable
     private GattServiceProvider? _batteryProvider;
     private GattLocalCharacteristic? _keyboardInput;
     private GattLocalCharacteristic? _mouseInput;
+    private GattLocalCharacteristic? _consumerInput;
+    private byte[] _lastConsumerReport = new byte[HidReports.ConsumerReportLength];
     private byte[] _lastKeyboardReport = new byte[HidReports.KeyboardReportLength];
     private byte[] _lastMouseReport = new byte[HidReports.MouseReportLength];
     private const byte CapsLockUsage = 0x39;
@@ -163,6 +165,11 @@ public sealed class HidPeripheral : IAsyncDisposable
 
         _mouseInput = await CreateInputReportAsync("Mouse input report", service,
             HidDescriptors.MouseReportId, () => _lastMouseReport);
+
+        // Media keys. A host bonded before this existed keeps its cached GATT database and does
+        // not see it until it pairs again; keyboard and mouse are unaffected either way.
+        _consumerInput = await CreateInputReportAsync("Consumer control input report", service,
+            HidDescriptors.ConsumerReportId, () => _lastConsumerReport);
 
         await CreateBatteryServiceAsync();
 
@@ -616,6 +623,13 @@ public sealed class HidPeripheral : IAsyncDisposable
     {
         _lastKeyboardReport = HidReports.KeyboardRelease();
         return NotifyAsync(_keyboardInput, _lastKeyboardReport);
+    }
+
+    /// <summary>Presses (usage) or releases (0) a media key on the target.</summary>
+    public Task SendConsumerAsync(ushort usage)
+    {
+        _lastConsumerReport = HidReports.Consumer(usage);
+        return NotifyAsync(_consumerInput, _lastConsumerReport);
     }
 
     public Task SendMouseAsync(MouseButtons buttons, int dx, int dy, int wheel)

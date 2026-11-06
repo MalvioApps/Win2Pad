@@ -44,6 +44,10 @@ public static class HidReports
 {
     public const int KeyboardReportLength = 8;
     public const int MouseReportLength    = 6;
+    public const int ConsumerReportLength = 2;
+
+    /// <summary>A Consumer Control report: one usage held, or 0 for none.</summary>
+    public static byte[] Consumer(ushort usage) => [(byte)(usage & 0xFF), (byte)(usage >> 8)];
     public static byte[] Keyboard(KeyModifiers modifiers, params byte[] usages)
     {
         var report = new byte[KeyboardReportLength];

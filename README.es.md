@@ -43,6 +43,9 @@ ningún accesorio.
   opcional, cambian de color.
 - **Cualquier distribución de teclado.** Las teclas se envían por posición, como un teclado
   Bluetooth de verdad: QWERTY, QWERTZ, AZERTY, Dvorak, japonés o brasileño, con la `ñ`, los acentos y AltGr.
+- **Pega desde el PC.** Mientras controlas el iPad, Ctrl+V escribe el texto que copiaste en el PC.
+- **Teclas multimedia** en el iPad: volumen, silencio, reproducir/pausa, pista siguiente y
+  anterior, y también Inicio y la búsqueda de Spotlight en los teclados que tienen esas teclas.
 - **Se actualiza solo** y puede arrancar con Windows.
 
 Lo que viene a continuación está en el [roadmap](ROADMAP.md) (en inglés).
@@ -142,6 +145,16 @@ arrástralo donde quieras y ocúltalo con clic derecho.
 | `Ctrl` + `Alt` + `Bloq Mayús` (o `Ctrl` + `D` + `C`) | Cambia entre el PC y el iPad sin usar el borde |
 | `Ctrl` + `Alt` + `Q` | Vuelve al PC, haga lo que haga el iPad |
 | Agitar el ratón | Cambia, si lo activas en *Keyboard and mouse* |
+| `Ctrl` + `V` en el iPad | Escribe el texto copiado en el PC (ver abajo) |
+
+### Pegar desde el PC
+
+Mientras controlas el iPad, **Ctrl+V escribe lo que copiaste en el PC**. Un teclado Bluetooth
+solo puede enviar teclas, así que Win2Pad escribe el texto tecla a tecla con la misma
+distribución de teclado que usa el iPad; los acentos van por su tecla muerta. Solo texto, hasta
+5.000 caracteres (alrededor de un minuto escribiendo); lo que ninguna tecla puede escribir, como
+los emojis, se omite. Si copiaste algo en el iPad más recientemente (Ctrl+C o Ctrl+X allí),
+Ctrl+V pega eso, como siempre.
 
 ## Solución de problemas
 
@@ -153,6 +166,8 @@ arrástralo donde quieras y ocúltalo con clic derecho.
 | Cuesta mucho volver, o se abren las notificaciones | Comprueba que **Screens** coincide con tu mesa y haz **Fine-tune…** del iPad en **Devices**. |
 | El puntero vuelve a una altura que no es | Haz **Fine-tune…** del iPad en **Devices**. |
 | Entra al iPad cuando no quieres | Desactiva *Move to the iPad through the screen edge* en **Screens** y usa el atajo. |
+| Las teclas multimedia no hacen nada en el iPad | Hace falta volver a emparejar el iPad una vez tras actualizar a la 0.2: olvida el PC en los ajustes de Bluetooth del iPad y empareja de nuevo. |
+| El texto pegado sale con símbolos mal | Igual que arriba: la distribución de teclado del iPad tiene que ser la del PC. |
 | La página Home dice que el Bluetooth no puede anunciarse | Tu adaptador no admite el modo LE periférico; un adaptador USB Bluetooth 5 pequeño suele servir. |
 
 ¿Sigues atascado? **About → Report a problem** abre un informe de error con tu versión, Windows y

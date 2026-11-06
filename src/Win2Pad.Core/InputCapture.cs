@@ -62,6 +62,21 @@ public sealed class InputCapture : IDisposable
     public event Action<int, int, bool>? LocalPointerMoved;
 
     public event Action<KeyModifiers, byte[]>? KeyboardReport;
+
+    /// <summary>A media key pressed (usage) or released (0) while input goes to the tablet.</summary>
+    public event Action<ushort>? ConsumerReport;
+
+    /// <summary>
+    /// Ctrl+V while input goes to the tablet. Return true to take it over (the V is then not
+    /// sent): the PC clipboard gets typed instead. Called on the hook thread, so it must be quick.
+    /// </summary>
+    public Func<bool>? PasteRequested { get; set; }
+
+    /// <summary>Ctrl+C or Ctrl+X while input goes to the tablet: the user copied something there.</summary>
+    public event Action? CopiedOnTablet;
+
+    // The V of a Ctrl+V that was taken over: its release must not reach the tablet either.
+    private bool _pasteSwallowedV;
     public event Action<MouseButtons, int, int, int>? MouseReport;
     public event Action? SwitchHostRequested;
     public event Action? StopRequested;
@@ -373,6 +388,30 @@ public sealed class InputCapture : IDisposable
         {
             if (isDown) _localPressedVirtualKeys.Add(virtualKey);
             return false;
+        }
+
+        // Media keys travel in their own report, not as keyboard usages.
+        if (ConsumerKeyMap.TryGetUsage(virtualKey, out var consumer))
+        {
+            ConsumerReport?.Invoke(isDown ? consumer : (ushort)0);
+            return !releaseLocally;
+        }
+
+        // Clipboard: Ctrl+C/X mark a copy made on the tablet; Ctrl+V may type the PC's instead.
+        var onlyControl = IsDown(0x11) && !IsDown(0x12) && !_pressedVirtualKeys.Contains(0x5B) && !_pressedVirtualKeys.Contains(0x5C);
+        if (isDown && onlyControl && virtualKey is 0x43 or 0x58) CopiedOnTablet?.Invoke();
+        if (virtualKey == 0x56)
+        {
+            if (isDown && onlyControl && PasteRequested?.Invoke() == true)
+            {
+                _pasteSwallowedV = true;
+                return true;
+            }
+            if (!isDown && _pasteSwallowedV)
+            {
+                _pasteSwallowedV = false;
+                return !releaseLocally;
+            }
         }
 
         if (VirtualKeyMap.TryGetUsage(virtualKey, scanCode, extended, out var usage))

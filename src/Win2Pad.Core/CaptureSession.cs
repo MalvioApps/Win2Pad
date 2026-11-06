@@ -1,6 +1,7 @@
 using System.Collections.Concurrent;
 using System.Diagnostics;
 using Win2Pad.Core.Edge;
+using Win2Pad.Core.Typing;
 
 namespace Win2Pad.Core;
 
@@ -10,12 +11,12 @@ namespace Win2Pad.Core;
 /// </summary>
 public static class CaptureSession
 {
-    internal enum Queued { Report, MouseReport, SwitchHost, GoLocal, EdgeEnter }
+    internal enum Queued { Report, MouseReport, SwitchHost, GoLocal, EdgeEnter, Consumer }
 
     internal readonly record struct InputReport(Queued Kind,
         KeyModifiers Modifiers = KeyModifiers.None, byte[]? Usages = null,
         MouseButtons Buttons = MouseButtons.None, int Dx = 0, int Dy = 0, int Wheel = 0,
-        IReadOnlyList<PinMove>? Moves = null);
+        IReadOnlyList<PinMove>? Moves = null, ushort Consumer = 0);
 
     internal sealed class ReportQueue
     {
@@ -30,6 +31,8 @@ public static class CaptureSession
 
         public void EnqueueKeyboard(KeyModifiers modifiers, byte[] usages) =>
             _ordered.Enqueue(new(Queued.Report, modifiers, usages));
+
+        public void EnqueueConsumer(ushort usage) => _ordered.Enqueue(new(Queued.Consumer, Consumer: usage));
 
         public void EnqueueMouse(MouseButtons buttons, int dx, int dy, int wheel)
         {
@@ -200,6 +203,13 @@ public static class CaptureSession
                             continue;
                         }
 
+                        if (key.Kind == Queued.Consumer)
+                        {
+                            await peripheral.SendConsumerAsync(key.Consumer);
+                            Interlocked.Increment(ref sent);
+                            continue;
+                        }
+
                         if (key.Kind == Queued.EdgeEnter)
                         {
                             await peripheral.RefreshHostNamesAsync();
@@ -292,6 +302,66 @@ public static class CaptureSession
         // The tablet's pointer speed setting: movement is scaled, keeping the fractions so slow
         // moves are not rounded away.
         double carryX = 0, carryY = 0;
+        capture.ConsumerReport += usage =>
+        {
+            reports.EnqueueConsumer(usage);
+            Wake();
+        };
+
+        // Clipboard to the tablet. A Bluetooth keyboard can only type, so Ctrl+V on the tablet
+        // types the PC clipboard out, unless the user copied on the tablet (Ctrl+C or Ctrl+X
+        // there) since the last copy on the PC: then the tablet's own paste is the newer one.
+        var tabletCopy = uint.MaxValue;
+        var typing = 0;
+        capture.CopiedOnTablet += () => tabletCopy = WindowsClipboard.SequenceNumber;
+        capture.PasteRequested = () =>
+        {
+            if (peripheral.IsLocalTarget || !WindowsClipboard.HasText) return false;
+            if (WindowsClipboard.SequenceNumber == tabletCopy) return false;
+            if (Interlocked.Exchange(ref typing, 1) == 1) return true; // already typing: ignore the repeat
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    await TypeClipboardAsync();
+                }
+                catch (Exception ex)
+                {
+                    log($"  [paste] failed: {ex.Message}");
+                }
+                finally
+                {
+                    Volatile.Write(ref typing, 0);
+                }
+            });
+            return true;
+        };
+
+        async Task TypeClipboardAsync()
+        {
+            // Read here, never on the hook thread: opening the clipboard can wait on its owner.
+            var text = WindowsClipboard.ReadText();
+            if (string.IsNullOrEmpty(text)) return;
+            var truncated = text.Length > MaxPasteCharacters;
+            if (truncated) text = text[..MaxPasteCharacters];
+
+            var (strokes, skipped) = TextTyper.ToStrokes(text, WindowsKeyLayout.Current());
+            var typed = 0;
+            foreach (var stroke in strokes)
+            {
+                // Stop if input came back to the PC in the middle (Ctrl+Alt+Q, an edge).
+                if (peripheral.IsLocalTarget) break;
+                reports.EnqueueKeyboard(stroke.Modifiers, [stroke.Usage]);
+                reports.EnqueueKeyboard(KeyModifiers.None, []);
+                Wake();
+                typed++;
+                // Hosts drop keys sent faster than they process them; this keeps up with an iPad.
+                await Task.Delay(PasteKeyGapMs);
+            }
+            log($"  [paste] typed {typed} keys{(skipped > 0 ? $", {skipped} characters the layout cannot type left out" : "")}" +
+                $"{(truncated ? $", cut at {MaxPasteCharacters} characters" : "")}");
+        }
+
         capture.MouseReport += (buttons, dx, dy, wheel) =>
         {
             var speed = Volatile.Read(ref switcher).Options.PointerSpeed;
@@ -376,6 +446,12 @@ public static class CaptureSession
         log($"  capture stopped. keyboard events={capture.KeyboardEvents}, mouse events={capture.MouseEvents}, reports sent={sent}");
         return sent;
     }
+
+    /// <summary>Longest text Ctrl+V types on the tablet; typing it out takes about a minute.</summary>
+    public const int MaxPasteCharacters = 5000;
+
+    /// <summary>Pause after each typed key.</summary>
+    public const int PasteKeyGapMs = 8;
 
     /// <summary>Keeps the selected tablet if it is still connected, otherwise takes the first one.</summary>
     private static bool SelectEdgeHost(HidPeripheral peripheral)

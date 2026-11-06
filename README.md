@@ -40,6 +40,9 @@ hardware to buy.
   colour.
 - **Any keyboard layout.** Keys are sent by position, like a real Bluetooth keyboard: QWERTY,
   QWERTZ, AZERTY, Dvorak, Japanese and Brazilian keyboards all work, AltGr included.
+- **Paste from the PC.** While you control the iPad, Ctrl+V types the text you copied on the PC.
+- **Media keys** work on the iPad: volume, mute, play/pause, next and previous track, plus Home
+  and Spotlight search on keyboards that have those keys.
 - **Updates itself** and can start with Windows.
 
 See what is coming next in the [roadmap](ROADMAP.md).
@@ -137,6 +140,15 @@ drag it anywhere, right-click to hide it.
 | `Ctrl` + `Alt` + `CapsLock` (or `Ctrl` + `D` + `C`) | Switch between the PC and the iPad without using the edge |
 | `Ctrl` + `Alt` + `Q` | Back to the PC, whatever the iPad is doing |
 | Shake the mouse | Switch, if enabled in *Keyboard and mouse* |
+| `Ctrl` + `V` on the iPad | Types the text copied on the PC (see below) |
+
+### Paste from the PC
+
+While you control the iPad, **Ctrl+V types what you copied on the PC**. A Bluetooth keyboard can
+only send keys, so Win2Pad types the text out key by key, through the same keyboard layout the
+iPad uses; accents go through their dead key. Text only, up to 5,000 characters (about a minute
+of typing); characters no key can type, such as emoji, are left out. If you copied something on
+the iPad more recently (Ctrl+C or Ctrl+X there), Ctrl+V pastes that instead, as usual.
 
 ## Troubleshooting
 
@@ -148,6 +160,8 @@ drag it anywhere, right-click to hide it.
 | Coming back takes too much pushing, or notifications open | Check that **Screens** matches your desk, then **Fine-tune…** the iPad in **Devices**. |
 | The pointer comes back at the wrong height | **Fine-tune…** the iPad in **Devices**. |
 | It enters the iPad when you don't want it to | Turn off *Move to the iPad through the screen edge* in **Screens** and use the shortcut instead. |
+| Media keys do nothing on the iPad | They need the iPad to pair again once after updating to 0.2: forget the PC in the iPad's Bluetooth settings and pair again. |
+| Pasted text has wrong symbols | Same as above: the iPad's keyboard layout must match the PC's. |
 | The Home page says Bluetooth cannot advertise | Your adapter does not support the LE peripheral role; a small USB Bluetooth 5 adapter usually does. |
 
 Still stuck? **About → Report a problem** opens a bug report with your version, Windows and iPad

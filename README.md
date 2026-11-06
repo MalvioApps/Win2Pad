@@ -12,7 +12,7 @@
 <p align="center">
   <a href="https://github.com/MalvioApps/Win2Pad/releases/latest"><img src="https://img.shields.io/github/v/release/MalvioApps/Win2Pad?label=download" alt="Latest release"></a>
   <a href="https://github.com/MalvioApps/Win2Pad/actions/workflows/ci.yml"><img src="https://github.com/MalvioApps/Win2Pad/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
-  <a href="LICENSE"><img src="https://img.shields.io/github/license/MalvioApps/Win2Pad" alt="MIT licence"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue" alt="MIT licence"></a>
 </p>
 
 <p align="center">

@@ -177,7 +177,8 @@ Needs the .NET 10 SDK (see `global.json`). `--page screens` (or `home`,
 
 ## Releasing
 
-Push a version tag. The `release` workflow runs the tests, builds the installer with
+Write what changed in `docs/release-notes/<version>.md`, then push a version tag. The `release`
+workflow runs the tests, builds the installer with
 [Velopack](https://velopack.io) and publishes the GitHub release that installed copies update
 from:
 

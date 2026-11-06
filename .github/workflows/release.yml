@@ -52,6 +52,15 @@ jobs:
           --repoUrl ${{ github.server_url }}/${{ github.repository }}
           --token ${{ secrets.GITHUB_TOKEN }}
 
+      # docs/release-notes/<version>.md, when there is one, goes into the package and the release.
+      - name: Release notes
+        id: notes
+        shell: pwsh
+        run: |
+          $path = "docs/release-notes/${{ steps.version.outputs.value }}.md"
+          $arg = if (Test-Path $path) { "--releaseNotes $path" } else { "" }
+          "arg=$arg" >> $env:GITHUB_OUTPUT
+
       - name: Pack
         run: >
           vpk pack
@@ -62,6 +71,7 @@ jobs:
           --packTitle Win2Pad
           --packAuthors MalvioApps
           --icon src/Win2Pad.App/Assets/win2pad.ico
+          ${{ steps.notes.outputs.arg }}
 
       - name: Upload release
         run: >
